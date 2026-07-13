@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { loadFromSlot } from '@april-thesis/simulation';
+import { audioManager } from '../audio/audioManager';
 import styles from './TitleScreen.module.css';
 
 export function TitleScreen() {
@@ -8,9 +9,11 @@ export function TitleScreen() {
   const refreshSaveSlots = useGameStore(s => s.refreshSaveSlots);
   const saveSlots = useGameStore(s => s.saveSlots);
   const loadCampaign = useGameStore(s => s.loadCampaign);
+  const preferences = useGameStore(s => s.preferences);
   useEffect(() => {
     refreshSaveSlots();
   }, [refreshSaveSlots]);
+  useEffect(() => { audioManager.configure(preferences); audioManager.setScene([]); audioManager.setMusicContext('title'); }, [preferences]);
 
   const handleContinue = async () => {
     if (saveSlots.length > 0) {

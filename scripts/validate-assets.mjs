@@ -4,9 +4,12 @@ import { resolve, relative, sep } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const publicRoot = resolve(root, 'apps/web/public');
 const manifestPath = resolve(publicRoot, 'assets/assets-manifest.json');
+const staleRootManifest = resolve(root, 'public/assets/assets-manifest.json');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const listed = new Set(manifest.assets.map(asset => asset.localPath.replaceAll('/', sep)));
 const errors = [];
+if (!manifest.canonical) errors.push('canonical asset manifest is not marked canonical');
+try { await stat(staleRootManifest); errors.push('stale root public/assets/assets-manifest.json must not exist'); } catch { /* Expected: one canonical manifest only. */ }
 
 for (const asset of manifest.assets) {
   for (const field of ['localPath', 'source', 'creator', 'license', 'verificationStatus']) {

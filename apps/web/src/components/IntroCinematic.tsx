@@ -3,6 +3,7 @@ import { cities, geographicContext, getCityPoint, getLinePath, railways } from '
 import { audioManager, type AudioCue } from '../audio/audioManager';
 import { useGameStore } from '../store/gameStore';
 import styles from './IntroCinematic.module.css';
+import phaseFour from './IntroCinematicPhaseFour.module.css';
 
 const SCENES = [
   { id:'old-order', duration:10000, caption:'[Winter wind. Telegraph keys begin.]' },
@@ -23,8 +24,8 @@ const PAPERS = [
 ];
 
 const LEADERS = [
-  { initials:'AK', name:'Alexandra Kollontai', role:'Agitator, writer, international voice' },
-  { initials:'AS', name:'Alexander Shliapnikov', role:'Metalworker and union organizer' },
+  { initials:'AK', name:'Alexandra Kollontai', role:'Agitator, writer, international voice', portrait:'/assets/portraits/kollontai.jpg', date:'1923' },
+  { initials:'AS', name:'Alexander Shliapnikov', role:'Metalworker and union organizer', portrait:'/assets/portraits/shliapnikov.jpg', date:'undated period photograph' },
   { initials:'SM', name:'Sergei Medvedev', role:'Industrial organizer and faction leader' },
   { initials:'YOU', name:'The player-organizer', role:'Background chosen in the campaign dossier' },
 ];
@@ -78,13 +79,15 @@ export function IntroCinematic() {
   const scene = SCENES[sceneIndex] ?? SCENES[0];
 
   const finish = useCallback(() => {
-    audioManager.cleanup();
+    audioManager.setScene([]);
+    audioManager.setMusicContext('title');
     updatePreferences({ introViewed:true });
     setScreen('title');
   }, [setScreen, updatePreferences]);
 
   const enableAudio = useCallback(() => {
     audioManager.activate(preferences); setAudioEnabled(true); setAudioActive(true);
+    audioManager.setMusicContext('title');
     audioManager.setScene(sceneLoops(scene.id));
     if (scene.id === 'old-order') audioManager.play('telegraph');
   }, [preferences, scene.id, setAudioEnabled]);
@@ -101,17 +104,17 @@ export function IntroCinematic() {
     if (scene.id === 'newspapers' && audioActive) { audioManager.play('paper'); audioManager.play('typewriter'); }
     const stampTimer = scene.id === 'congress' ? window.setTimeout(() => { setStampVisible(true); if (audioActive) audioManager.play('stamp'); }, 1800) : null;
     const telegramTimer = scene.id === 'opposition' && audioActive ? window.setTimeout(() => audioManager.play('telegram'), 1300) : null;
-    if (scene.id === 'title' && audioActive) audioManager.play('titleCue');
+    if (scene.id === 'title' && audioActive) audioManager.setMusicContext('title');
     return () => { if (stampTimer) window.clearTimeout(stampTimer); if (telegramTimer) window.clearTimeout(telegramTimer); };
   }, [audioActive, preferences, scene.id]);
 
-  useEffect(() => () => audioManager.cleanup(), []);
+  useEffect(() => () => audioManager.setScene([]), []);
 
   if (reducedMotion) return <main className={styles.staticIntro}>
     <section className={styles.staticContent}><FactionMark/><p className={styles.eyebrow}>March 1921 · reduced-motion introduction</p><h1>YOU LEAD THE WORKERS’ OPPOSITION</h1><p>A Bolshevik current rooted in trade unions and industrial labor. Its leaders demand a greater role for organized workers in governing the economy. The Party has ordered it to dissolve.</p><div className={styles.staticLeaders}>{LEADERS.map(leader => <LeaderCard key={leader.initials} {...leader}/>)}</div><blockquote>“The resolution has passed. What remains of the organization must decide tonight.”</blockquote><button className="primary" onClick={finish}>Continue to title screen</button></section>
   </main>;
 
-  return <main className={styles.intro} role="region" aria-label="Introduction cinematic" data-scene={scene.id}>
+  return <main className={`${styles.intro} ${phaseFour.introRoot}`} role="region" aria-label="Introduction cinematic" data-scene={scene.id}>
     <div className={styles.filmGrain}/><button className={styles.skipBtn} onClick={finish}>Skip introduction</button>{!audioActive && <button className={styles.audioBtn} onClick={enableAudio}>Enable cinematic audio</button>}
     {scene.id === 'old-order' && <section className={`${styles.scene} ${styles.oldOrder}`}><EmpireMap/><div className={styles.sceneCopy}><p className={styles.eyebrow}>Petrograd · November 1917</p><h1>1917. The old order fell.</h1><p>Telegraph wires carried decrees faster than the state could enforce them.</p></div></section>}
     {scene.id === 'civil-war' && <section className={`${styles.scene} ${styles.civilWar}`}><EmpireMap conflict/><div className={styles.civilCopy}>{CIVIL_LINES.map((line,index)=><p key={line} style={{'--line-index':index} as CSSProperties}>{line}</p>)}</div></section>}
@@ -123,6 +126,6 @@ export function IntroCinematic() {
   </main>;
 }
 
-function FactionMark() { return <svg viewBox="0 0 72 72" className={styles.factionMark} aria-label="Original Workers’ Opposition game symbol" role="img"><circle cx="36" cy="36" r="30"/><path d="M36 9V18M36 54V63M9 36H18M54 36H63M17 17L23 23M49 49L55 55M55 17L49 23M23 49L17 55"/><circle cx="36" cy="36" r="18"/><path d="M27 46V29L32 25V37L37 34V42L43 38V46Z"/></svg>; }
+function FactionMark() { return <div className={phaseFour.factionMarkWrap}><svg viewBox="0 0 72 72" className={styles.factionMark} aria-label="Original Workers’ Opposition game symbol" role="img"><circle cx="36" cy="36" r="30"/><path d="M36 9V18M36 54V63M9 36H18M54 36H63M17 17L23 23M49 49L55 55M55 17L49 23M23 49L17 55"/><circle cx="36" cy="36" r="18"/><path d="M27 46V29L32 25V37L37 34V42L43 38V46Z"/></svg><span>Modern interface insignia · no historical emblem claimed</span></div>; }
 
-function LeaderCard({ initials, name, role }: { initials:string; name:string; role:string }) { return <article className={styles.leaderCard}><div className={styles.portraitFallback}><span>{initials}</span><svg viewBox="0 0 80 100" aria-hidden="true"><circle cx="40" cy="30" r="18"/><path d="M14 96Q16 55 40 54Q64 55 66 96Z"/></svg></div><div><strong>{name}</strong><span>{role}</span><small>Designed dossier silhouette · no historical photograph claimed</small></div></article>; }
+function LeaderCard({ initials, name, role, portrait, date }: { initials:string; name:string; role:string; portrait?:string; date?:string }) { return <article className={styles.leaderCard}>{portrait?<img className={phaseFour.leaderPortrait} src={portrait} alt={`Historical portrait of ${name}, ${date}`}/>:<div className={styles.portraitFallback}><span>{initials}</span><svg viewBox="0 0 80 100" aria-hidden="true"><circle cx="40" cy="30" r="18"/><path d="M14 96Q16 55 40 54Q64 55 66 96Z"/></svg></div>}<div><strong>{name}</strong><span>{role}</span><small>{portrait?`Public-domain historical photograph · ${date}`:'Designed dossier silhouette · no historical photograph claimed'}</small></div></article>; }

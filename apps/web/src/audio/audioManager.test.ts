@@ -16,6 +16,11 @@ const preferences: UserPreferences = {
   mapAnimation: true,
   ambientVisualEffects: true,
   audioPreload: 'minimal',
+  beginnerHintMode: 'first_campaign',
+  hiddenHintIds: [],
+  campaignsStarted: 1,
+  researchMode: false,
+  allCityLabels: false,
 };
 
 class FakeAudio {
@@ -65,9 +70,44 @@ describe('central audio manager', () => {
     vi.stubGlobal('Audio', FakeAudio);
     const manager = new AudioManager();
     manager.activate({ ...preferences, muted: true });
-    const element = manager.play('titleCue') as unknown as FakeAudio;
+    const element = manager.play('mainMenuMusic') as unknown as FakeAudio;
     expect(element.volume).toBe(0);
     expect(element.play).toHaveBeenCalledOnce();
+  });
+
+  it('crossfades adaptive music without restarting the same context', () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('Audio', FakeAudio);
+    vi.stubGlobal('window', globalThis);
+    const manager = new AudioManager();
+    manager.activate(preferences);
+    manager.setMusicContext('campaign');
+    manager.setMusicContext('crisis',160);
+    expect(FakeAudio.instances.some(item=>item.src.includes('campaign-planning.wav'))).toBe(true);
+    expect(FakeAudio.instances.some(item=>item.src.includes('political-tension.wav'))).toBe(true);
+    vi.advanceTimersByTime(200);
+    const count=FakeAudio.instances.length;
+    manager.setMusicContext('crisis');
+    expect(FakeAudio.instances).toHaveLength(count);
+    manager.destroy();
+    vi.useRealTimers();
+  });
+
+  it('starts a pending music context on the first user activation', () => {
+    vi.stubGlobal('Audio',FakeAudio);
+    const manager=new AudioManager();manager.setMusicContext('title');expect(FakeAudio.instances).toHaveLength(0);
+    manager.activate(preferences);expect(FakeAudio.instances.some(item=>item.src.includes('main-menu-theme.wav'))).toBe(true);manager.destroy();
+  });
+
+  it('pauses looping audio while the document is hidden and resumes it', async () => {
+    vi.stubGlobal('Audio', FakeAudio);
+    const listeners=new Map<string,()=>void>();
+    const fakeDocument={hidden:false,addEventListener:vi.fn((name:string,handler:()=>void)=>listeners.set(name,handler)),removeEventListener:vi.fn()};
+    vi.stubGlobal('document',fakeDocument);
+    const manager=new AudioManager();manager.activate(preferences);const element=manager.play('wind') as unknown as FakeAudio;
+    fakeDocument.hidden=true;listeners.get('visibilitychange')?.();expect(element.pause).toHaveBeenCalled();
+    fakeDocument.hidden=false;listeners.get('visibilitychange')?.();await Promise.resolve();expect(element.play).toHaveBeenCalledTimes(2);
+    manager.destroy();
   });
 
   it('contains a rejected or missing audio asset without an uncaught failure', async () => {

@@ -55,6 +55,8 @@ export type HistoricalClassification =
   | 'counterfactual'
   | 'fictional_composite';
 
+export type BeginnerHintMode = 'off' | 'first_campaign' | 'every_campaign';
+
 export interface HistoricalMetadata {
   classification: HistoricalClassification;
   sourceIds: string[];
@@ -359,6 +361,8 @@ export interface CampaignState {
   newspapers: NewspaperArticle[];
   tutorialStep: number;
   tutorialComplete: boolean;
+  tutorialPaused: boolean;
+  dismissedHintIds: string[];
   gameOver: boolean;
   endingId: string | null;
   rngState: number;
@@ -426,11 +430,16 @@ export interface UserPreferences {
   mapAnimation: boolean;
   ambientVisualEffects: boolean;
   audioPreload: 'minimal' | 'full';
+  beginnerHintMode: BeginnerHintMode;
+  hiddenHintIds: string[];
+  campaignsStarted: number;
+  researchMode: boolean;
+  allCityLabels: boolean;
 }
 
-export const GAME_VERSION = '0.3.0';
-export const CONTENT_VERSION = '0.3.0';
-export const SAVE_VERSION = 3;
+export const GAME_VERSION = '0.4.0';
+export const CONTENT_VERSION = '0.4.0';
+export const SAVE_VERSION = 4;
 export const CAMPAIGN_START_DATE = '1921-03';
 export const CAMPAIGN_END_DATE = '1924-04';
 export const VERTICAL_SLICE_END = '1921-08';

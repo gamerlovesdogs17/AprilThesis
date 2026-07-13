@@ -17,6 +17,7 @@ import { SaveArchivePanel } from './AuxiliaryScreens';
 import { GeographicMap } from './GeographicMap';
 import { InstitutionalBalanceChart, NationalDashboard, RegionalComparisonChart, VoteSeatingChart } from './PoliticalCharts';
 import { audioManager } from '../audio/audioManager';
+import { BeginnerHint, TutorialOverlay } from './GuidedOverlays';
 import styles from './GameScreen.module.css';
 
 const MAP_MODES: MapMode[] = [
@@ -33,7 +34,13 @@ const PHASE_LABELS = {
   consequences: 'Resolution',
 };
 
-const BOTTOM_TABS = ['economy', 'faction', 'party', 'institutions', 'characters', 'intelligence', 'laws', 'newspapers', 'archive', 'decisions', 'sources'];
+const DOCK_GROUPS = [
+  { id:'situation', label:'Situation', icon:'S', tabs:[['economy','National'],['intelligence','Intelligence'],['regional','Regions']] },
+  { id:'organization', label:'Organization', icon:'O', tabs:[['faction','Faction'],['organizers','Organizers'],['characters','Characters'],['institutions','Institutions']] },
+  { id:'politics', label:'Politics', icon:'P', tabs:[['party','Party'],['laws','Laws'],['decisions','Decisions']] },
+  { id:'press', label:'Press', icon:'N', tabs:[['newspapers','Newspapers'],['archive','Historical archive']] },
+  { id:'saves', label:'Saves', icon:'D', tabs:[['saves','Save management'],['import_export','Import / export']] },
+] as const;
 
 function humanize(value: string) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -121,10 +128,16 @@ function RegionPanel() {
   const campaign = useGameStore(s => s.campaign)!;
   const content = useGameStore(s => s.content);
   const selectedRegionId = useGameStore(s => s.selectedRegionId);
+  const selectedCharacterId = useGameStore(s => s.selectedCharacterId);
   const startOperation = useGameStore(s => s.startOperation);
   const [showAll, setShowAll] = useState(false);
   const availableOrganizers = Object.values(campaign.organizers).filter(org => ['available', 'assigned'].includes(org.status));
   const [organizerId, setOrganizerId] = useState(availableOrganizers[0]?.id ?? '');
+  const selectedCharacter = content.characters.find(character => character.id === selectedCharacterId);
+  if (selectedCharacter) {
+    const state = campaign.characters[selectedCharacter.id];
+    return <div className={styles.contextPanel} data-testid="character-dossier"><p className={styles.kicker}>Character dossier · {humanize(state.availability)}</p>{selectedCharacter.portraitPath ? <img className={styles.dossierPortrait} src={selectedCharacter.portraitPath} alt={`Historical portrait of ${selectedCharacter.name}`}/> : <div className={styles.dossierFallback} role="img" aria-label={`Designed portrait fallback for ${selectedCharacter.name}`}>{selectedCharacter.name.split(' ').map(part=>part[0]).slice(0,2).join('')}</div>}<h2>{selectedCharacter.name}</h2><p>{selectedCharacter.description}</p><div className={styles.regionFacts}><span><b>Office</b>{selectedCharacter.title}</span><span><b>Alignment</b>{humanize(state.factionAlignment)}</span><span><b>Trust / respect</b>{state.trust} / {state.respect}</span><span><b>Health</b>{state.health}</span><span><b>Current agenda</b>{state.currentAgenda}</span><span><b>Last action</b>{state.lastAction}</span></div><h3>Known red lines</h3><p>{selectedCharacter.redLines.join(' · ') || 'Not yet established.'}</p></div>;
+  }
   const regionDef = content.regions.find(r => r.id === selectedRegionId);
   const region = selectedRegionId ? campaign.regions[selectedRegionId] : null;
   if (!region || !regionDef) return <NationalBriefing />;
@@ -141,9 +154,9 @@ function RegionPanel() {
     <div className={styles.miniMeters}>
       <Metric label="Workers' Opposition" value={region.influence.workersOpposition}/><Metric label="Trade unions" value={region.tradeUnionOrganization}/><Metric label="Food supply" value={region.foodSupply}/><Metric label="Unrest" value={region.publicUnrest} danger/><Metric label="Cheka" value={region.chekaPresence} danger/>
     </div>
-    <h3>Regional operations <small>{activeThisTurn}/2 ordered this turn</small></h3>
+    <h3 data-tutorial="regional-operations">Regional operations <small>{activeThisTurn}/2 ordered this turn</small></h3>
     <label className={styles.inlineControl}>Assigned organizer <select aria-label="Assigned organizer" value={organizerId} onChange={e => setOrganizerId(e.target.value)}><option value="">No named organizer</option>{availableOrganizers.map(org => <option value={org.id} key={org.id}>{org.name} · org {org.skills.organizing} / sec {org.skills.security}</option>)}</select></label>
-    <div className={styles.operationList}>{operations.map(op => {
+    <div className={styles.operationList} data-tutorial="regional-operations">{operations.map(op => {
       const resources = campaign.resources as unknown as Record<string, number>;
       const eligibility = getOperationEligibility(campaign, op, region.id, organizerId || undefined);
       const affordable = Object.entries(op.cost).every(([key,value]) => resources[key] >= value) && activeThisTurn < 2 && eligibility.eligible;
@@ -171,37 +184,59 @@ function EventDrawer() {
   const campaign = useGameStore(s => s.campaign)!;
   const content = useGameStore(s => s.content);
   const resolveEventChoice = useGameStore(s => s.resolveEventChoice);
+  const researchMode = useGameStore(s => s.preferences.researchMode);
+  const [mode, setMode] = useState<'compact'|'expanded'|'minimized'>('compact');
   const event = content.events.find(item => item.id === campaign.currentEventId);
+  useEffect(() => setMode('compact'), [event?.id]);
   if (!event) return null;
-  return <aside className={styles.eventDrawer} aria-label="Active decision" aria-live="polite">
-    <p className={styles.kicker}>{event.historical.classification.replaceAll('_', ' ')} · {event.historical.historicalDate}</p><h2>{event.title}</h2><p>{event.description}</p>
+  if (mode === 'minimized') return <button className={styles.eventTelegram} data-testid="event-minimized" onClick={() => setMode('compact')}><span>Pending decision</span><strong>{event.title}</strong><em>Open dossier</em></button>;
+  return <aside className={`${styles.eventDrawer} ${mode === 'expanded' ? styles.eventExpanded : ''}`} data-testid="event-dossier" data-tutorial="event-dossier" aria-label="Active decision" aria-live="polite">
+    <header className={styles.eventHeader}><div><p className={styles.kicker}>{event.historical.classification.replaceAll('_', ' ')} · {event.historical.historicalDate}</p><h2>{event.title}</h2></div><div><button aria-label="Minimize active decision" onClick={() => setMode('minimized')}>Minimize</button><button aria-label={mode === 'expanded' ? 'Compact decision dossier' : 'Expand decision dossier'} onClick={() => setMode(value => value === 'expanded' ? 'compact' : 'expanded')}>{mode === 'expanded' ? 'Compact' : 'Expand'}</button></div></header><p>{event.description}</p>
     <div className={styles.eventChoices}>{event.choices.map(choice => { const eligibility = isEventChoiceEligible(campaign, event, choice.id); return <button key={choice.id} disabled={!eligibility.eligible} title={eligibility.reason} onClick={() => resolveEventChoice(event.id, choice.id)}><strong>{choice.text}</strong>{choice.narrative && <span>{choice.narrative}</span>}{!eligibility.eligible && <em>{eligibility.reason}</em>}</button>; })}</div>
-    <details><summary>Historical metadata</summary><p>Sources: {event.historical.sourceIds.join(', ')}. Classification: {event.historical.classification.replaceAll('_', ' ')}.</p></details>
+    {mode === 'expanded' && <section className={styles.eventContext}><h3>Known context</h3><p>This dossier records information already available to the organizer. Choice consequences that have not occurred remain concealed.</p>{researchMode && <details><summary>Research notes</summary><p>Sources: {event.historical.sourceIds.join(', ')}. Classification: {event.historical.classification.replaceAll('_', ' ')}.</p></details>}</section>}
   </aside>;
 }
 
 function BottomPanel() {
   const campaign = useGameStore(s => s.campaign)!;
   const content = useGameStore(s => s.content);
+  const groupId = useGameStore(s => s.bottomGroup);
   const tab = useGameStore(s => s.bottomTab);
+  const collapsed = useGameStore(s => s.bottomWorkspaceCollapsed);
+  const setGroup = useGameStore(s => s.setBottomGroup);
   const setTab = useGameStore(s => s.setBottomTab);
-  return <section className={styles.bottomPanel}>
-    <nav aria-label="Campaign sections">{BOTTOM_TABS.map(item => <button key={item} className={tab === item ? styles.activeTab : ''} onClick={() => setTab(item)}>{humanize(item)}</button>)}</nav>
-    <div className={styles.tabContent}>
-      {tab === 'economy' && <><NationalDashboard campaign={campaign}/><details className={styles.ledger}><summary>Detailed economic ledger</summary><DataCards items={[
+  const toggle = useGameStore(s => s.toggleBottomWorkspace);
+  const researchMode = useGameStore(s => s.preferences.researchMode);
+  const group = DOCK_GROUPS.find(item => item.id === groupId) ?? DOCK_GROUPS[0];
+  const selectedTab = group.tabs.some(([id]) => id === tab) ? tab : group.tabs[0][0];
+  useEffect(() => { if (selectedTab !== tab) setTab(selectedTab); }, [selectedTab, setTab, tab]);
+  const navigateGroups = (event: KeyboardEvent<HTMLElement>) => {
+    if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    event.preventDefault();
+    const index = DOCK_GROUPS.findIndex(item => item.id === group.id);
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? DOCK_GROUPS.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + DOCK_GROUPS.length) % DOCK_GROUPS.length;
+    const nextGroup = DOCK_GROUPS[nextIndex]; setGroup(nextGroup.id, nextGroup.tabs[0][0]);
+  };
+  return <section className={`${styles.bottomPanel} ${collapsed ? styles.bottomCollapsed : ''}`} data-testid="command-dock">
+    <div className={styles.dockHeader}><nav aria-label="Campaign command groups" onKeyDown={navigateGroups}>{DOCK_GROUPS.map(item => <button key={item.id} data-tutorial={`dock-${item.id}`} aria-pressed={group.id === item.id} className={group.id === item.id ? styles.activeGroup : ''} onClick={() => setGroup(item.id,item.tabs[0][0])}><i>{item.icon}</i><span>{item.label}</span>{item.id === 'press' && campaign.newspapers.length > 0 && <b>{campaign.newspapers.length}</b>}</button>)}</nav><button className={styles.collapseDock} data-testid="toggle-command-dock" onClick={toggle} title="Toggle bottom workspace (Alt+B)">{collapsed ? 'Expand workspace' : 'Collapse workspace'}</button></div>
+    {!collapsed && <nav className={styles.subnav} aria-label={`${group.label} sections`}>{group.tabs.map(([id,label]) => <button key={id} data-tutorial={id === 'characters' ? 'characters-view' : id === 'institutions' ? 'institutions-view' : id === 'laws' ? 'laws-view' : id === 'party' ? 'politics-view' : undefined} className={selectedTab === id ? styles.activeTab : ''} onClick={() => setTab(id)}>{label}</button>)}</nav>}
+    {!collapsed && <div className={styles.tabContent}>
+      {selectedTab === 'economy' && <><NationalDashboard campaign={campaign}/><details className={styles.ledger}><summary>Detailed economic ledger</summary><DataCards items={[
         ['Industrial production', campaign.nationalStats.industrialProduction], ['Agricultural production', campaign.nationalStats.agriculturalProduction], ['Grain reserves', campaign.nationalStats.grainReserves], ['Urban food supply', campaign.nationalStats.urbanFoodSupply], ['Inflation', campaign.nationalStats.inflation], ['Black market', campaign.nationalStats.blackMarketActivity], ['Infrastructure', campaign.nationalStats.infrastructure], ['State revenue', campaign.nationalStats.stateRevenue],
       ]}/></details></>} 
-      {tab === 'faction' && <FactionPanel/>}
-      {tab === 'party' && <VotePanel/>}
-      {tab === 'institutions' && <InstitutionsPanel/>}
-      {tab === 'characters' && <CharactersPanel/>}
-      {tab === 'intelligence' && <div className={styles.recordGrid}>{content.regions.slice().sort((a,b) => campaign.regions[a.id].intelligenceReliability - campaign.regions[b.id].intelligenceReliability).map(def => <article key={def.id}><h3>{def.name}</h3><p>Confidence {campaign.regions[def.id].intelligenceReliability}% · report age {campaign.regions[def.id].intelligenceAge} month(s)</p></article>)}</div>}
-      {tab === 'laws' && <LawsPanel/>}
-      {tab === 'newspapers' && <Newspapers/>}
-      {tab === 'archive' && <SaveArchivePanel/>}
-      {tab === 'decisions' && <div className={styles.timeline}>{campaign.decisions.slice().reverse().map((decision,i) => <p key={`${decision.turn}-${i}`}><b>{formatGameDate(decision.date)}</b>{decision.description}</p>)}{!campaign.decisions.length && <p>No decisions recorded.</p>}</div>}
-      {tab === 'sources' && <div className={styles.recordGrid}>{Array.from(new Set(content.events.flatMap(event => event.historical.sourceIds))).map(source => <article key={source}><h3>{source}</h3><p>Research record listed in docs/HISTORICAL_BASELINE.md.</p></article>)}</div>}
-    </div>
+      {selectedTab === 'faction' && <FactionPanel/>}
+      {selectedTab === 'organizers' && <FactionPanel/>}
+      {selectedTab === 'party' && <VotePanel/>}
+      {selectedTab === 'institutions' && <InstitutionsPanel/>}
+      {selectedTab === 'characters' && <CharactersPanel/>}
+      {selectedTab === 'intelligence' && <div className={styles.recordGrid}>{content.regions.slice().sort((a,b) => campaign.regions[a.id].intelligenceReliability - campaign.regions[b.id].intelligenceReliability).map(def => <article key={def.id}><h3>{def.name}</h3><p>Confidence {campaign.regions[def.id].intelligenceReliability}% · report age {campaign.regions[def.id].intelligenceAge} month(s)</p></article>)}</div>}
+      {selectedTab === 'regional' && <RegionalComparisonChart campaign={campaign} regionIds={content.regions.slice(0,8).map(region => region.id)}/>}
+      {selectedTab === 'laws' && <LawsPanel/>}
+      {selectedTab === 'newspapers' && <Newspapers/>}
+      {selectedTab === 'archive' && <div className={styles.recordGrid}>{content.events.map(event => <article key={event.id}><h3>{event.title}</h3><p>{humanize(event.historical.classification)} · {event.historical.historicalDate ?? 'Undated'}</p>{researchMode && <small>{event.historical.sourceIds.join(', ')}</small>}</article>)}</div>}
+      {(selectedTab === 'saves' || selectedTab === 'import_export') && <SaveArchivePanel/>}
+      {selectedTab === 'decisions' && <div className={styles.timeline}>{campaign.decisions.slice().reverse().map((decision,i) => <p key={`${decision.turn}-${i}`}><b>{formatGameDate(decision.date)}</b>{decision.description}</p>)}{!campaign.decisions.length && <p>No decisions recorded.</p>}</div>}
+    </div>}
   </section>;
 }
 
@@ -215,7 +250,7 @@ function FactionPanel() {
   const act = useGameStore(s => s.performFactionAction);
   return <div className={styles.managementPanel}>
     <div className={styles.managementHeader}><div><p className={styles.kicker}>Monthly internal work</p><h3>{campaign.factionActionsRemaining} action(s) remaining</h3><p>Budget: {Object.entries(campaign.monthlyBudget).map(([key,value]) => `${humanize(key)} ₽${value}`).join(' · ') || 'unallocated'}</p></div><div className={styles.actionStrip}><button disabled={campaign.phase !== 'faction_management' || campaign.factionActionsRemaining < 1} onClick={() => act('protect_cells')}>Protect cells · ₽5</button><button disabled={campaign.phase !== 'faction_management' || campaign.factionActionsRemaining < 1} onClick={() => act('internal_meeting')}>Internal meeting</button><button disabled={campaign.phase !== 'faction_management' || campaign.factionActionsRemaining < 1} onClick={() => act('print_material', undefined, 'worker democracy')}>Print propaganda · ₽6</button><button disabled={campaign.phase !== 'faction_management' || campaign.factionActionsRemaining < 1} onClick={() => act('allocate_budget', undefined, 'security')}>Budget ₽5 security</button><button disabled={campaign.phase !== 'faction_management' || campaign.factionActionsRemaining < 1} onClick={() => act('allocate_budget', undefined, 'relief')}>Budget ₽5 relief</button></div></div>
-    <h3>Organizer roster</h3><div className={styles.recordGrid}>{Object.values(campaign.organizers).map(org => <article key={org.id} className={org.status === 'arrested' ? styles.unavailable : ''}><h3>{org.name}</h3><p>{org.background}</p><small>{humanize(org.status)} · morale {org.morale} · exposure {org.exposure} · health {org.health}</small><small>Organizing {org.skills.organizing} · security {org.skills.security} · persuasion {org.skills.persuasion} · intelligence {org.skills.intelligence}</small><p>{org.traits.join(' · ')}</p><button disabled={!selectedRegionId || campaign.phase !== 'faction_management' || campaign.factionActionsRemaining < 1 || org.status === 'arrested'} onClick={() => act('assign_region', org.id, selectedRegionId ?? undefined)}>Assign to selected region</button><button disabled={campaign.phase !== 'faction_management' || campaign.factionActionsRemaining < 1 || org.status === 'arrested'} onClick={() => act('rest_organizer', org.id)}>Rest / recover</button></article>)}</div>
+    <h3>Organizer roster</h3><div className={styles.recordGrid} data-tutorial="organizer-assignment">{Object.values(campaign.organizers).map(org => <article key={org.id} className={org.status === 'arrested' ? styles.unavailable : ''}><h3>{org.name}</h3><p>{org.background}</p><small>{humanize(org.status)} · morale {org.morale} · exposure {org.exposure} · health {org.health}</small><small>Organizing {org.skills.organizing} · security {org.skills.security} · persuasion {org.skills.persuasion} · intelligence {org.skills.intelligence}</small><p>{org.traits.join(' · ')}</p><button disabled={!selectedRegionId || campaign.phase !== 'faction_management' || campaign.factionActionsRemaining < 1 || org.status === 'arrested'} onClick={() => act('assign_region', org.id, selectedRegionId ?? undefined)}>Assign to selected region</button><button disabled={campaign.phase !== 'faction_management' || campaign.factionActionsRemaining < 1 || org.status === 'arrested'} onClick={() => act('rest_organizer', org.id)}>Rest / recover</button></article>)}</div>
     <h3>Internal blocs</h3><div className={styles.blocTable}>{Object.values(campaign.factionBlocs).map(blocState => <div key={blocState.id}><strong>{blocState.name}</strong><span>Leader {humanize(blocState.leaderId)}</span><span>Support {Math.round(blocState.support)} · satisfaction {Math.round(blocState.satisfaction)} · split risk {Math.round(blocState.splitRisk)}</span><span>Underground willingness {blocState.undergroundWillingness} · red line: {blocState.redLines[0]}</span><em>{blocState.lastReaction}</em></div>)}</div>
   </div>;
 }
@@ -239,7 +274,9 @@ function InstitutionsPanel() {
 
 function CharactersPanel() {
   const campaign = useGameStore(s => s.campaign)!; const content = useGameStore(s => s.content); const selectCharacter = useGameStore(s => s.selectCharacter);
-  return <div className={styles.characterGrid}>{content.characters.map(char => { const state = campaign.characters[char.id]; const initials=char.name.split(' ').map(part=>part[0]).slice(0,2).join(''); return <button key={char.id} className={state.availability !== 'active' ? styles.unavailable : ''} onClick={() => selectCharacter(char.id)}><div className={styles.characterPortrait} aria-hidden="true"><span>{initials}</span><svg viewBox="0 0 70 88"><circle cx="35" cy="26" r="16"/><path d="M9 86Q12 48 35 47Q58 48 61 86Z"/></svg></div><div><small className={styles.officeBadge}>{char.title}</small><strong>{char.name}</strong><span>{humanize(state.availability)} · trust {state.trust} · respect {state.respect} · health {state.health}</span><p><b>Current agenda</b>{state.currentAgenda}</p><p>{state.lastAction}</p><small>Red lines: {char.redLines.join(', ') || 'not yet known'} · known secrets {state.knownSecrets.length}</small></div></button>; })}</div>;
+  const [query, setQuery] = useState('');
+  const characters = content.characters.filter(char => `${char.name} ${char.title} ${char.aliases.join(' ')}`.toLowerCase().includes(query.toLowerCase()));
+  return <><label className={styles.characterSearch}>Search characters <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Name, alias, or office"/></label><div className={styles.characterGrid}>{characters.map(char => { const state=campaign.characters[char.id]; const initials=char.name.split(' ').map(part=>part[0]).slice(0,2).join(''); return <button key={char.id} className={state.availability !== 'active' ? styles.unavailable : ''} onClick={() => selectCharacter(char.id)}>{char.portraitPath ? <img className={styles.characterPortraitImage} src={char.portraitPath} alt={`Historical portrait of ${char.name}`}/> : <div className={styles.characterPortrait} role="img" aria-label={`Designed portrait fallback for ${char.name}`}><span>{initials}</span><svg viewBox="0 0 70 88" aria-hidden="true"><circle cx="35" cy="26" r="16"/><path d="M9 86Q12 48 35 47Q58 48 61 86Z"/></svg></div>}<div><small className={styles.officeBadge}>{char.title}</small><strong>{char.name}</strong><span>{humanize(state.availability)} · trust {state.trust} · respect {state.respect} · health {state.health}</span><p><b>Current agenda</b>{state.currentAgenda}</p><p>{state.lastAction}</p><small>Red lines: {char.redLines.join(', ') || 'not yet known'} · known secrets {state.knownSecrets.length}</small></div></button>; })}</div></>;
 }
 
 function LawsPanel() {
@@ -262,28 +299,51 @@ export function GameScreen() {
   const advancePhase = useGameStore(s => s.advancePhase);
   const setScreen = useGameStore(s => s.setScreen);
   const saveGame = useGameStore(s => s.saveGame);
+  const campaignDirty = useGameStore(s => s.campaignDirty);
+  const leftCollapsed = useGameStore(s => s.leftSidebarCollapsed);
+  const bottomCollapsed = useGameStore(s => s.bottomWorkspaceCollapsed);
+  const toggleLeft = useGameStore(s => s.toggleLeftSidebar);
+  const toggleBottom = useGameStore(s => s.toggleBottomWorkspace);
+  const setTutorialStep = useGameStore(s => s.setTutorialStep);
   const turnSummary = useGameStore(s => s.turnSummary);
   const dismissTurnSummary = useGameStore(s => s.dismissTurnSummary);
   const [notice, setNotice] = useState('');
   useEffect(() => {
     if (turnSummary) audioManager.play('paper');
   }, [turnSummary]);
+  useEffect(() => {
+    if (!campaign) return;
+    const averageFamine=Object.values(campaign.regions).reduce((sum,region)=>sum+region.famineSeverity,0)/Math.max(1,Object.keys(campaign.regions).length);
+    const context=averageFamine>=62?'famine':campaign.voteState||campaign.phase==='party_politics'?'vote':campaign.resources.exposure>=70||campaign.nationalStats.regimeStability<=30?'crisis':'campaign';
+    audioManager.setMusicContext(context);
+  }, [campaign?.phase,campaign?.resources.exposure,campaign?.nationalStats.regimeStability,campaign?.voteState,campaign?.turnNumber]);
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.altKey && event.key.toLowerCase() === 'b') { event.preventDefault(); toggleBottom(); }
+      if (event.altKey && event.key.toLowerCase() === 'l') { event.preventDefault(); toggleLeft(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleBottom, toggleLeft]);
   if (!campaign) return <div className={styles.empty}><h1>No campaign loaded</h1><button onClick={() => setScreen('title')}>Return to title</button></div>;
   const save = async () => { try { await saveGame('manual-1', `Manual · ${formatGameDate(campaign.currentDate)}`); audioManager.play('stamp'); setNotice('Campaign secured in local archive.'); } catch (error) { audioManager.play('warning'); setNotice(error instanceof Error ? error.message : 'Save failed'); } };
-  return <main className={styles.game}>
+  return <main className={`${styles.game} ${bottomCollapsed ? styles.gameWorkspaceCollapsed : ''}`}>
     <header className={styles.topBar}>
-      <div className={styles.dateBlock}><strong>{formatGameDate(campaign.currentDate)}</strong><span>Turn {campaign.turnNumber} · {PHASE_LABELS[campaign.phase]}</span></div>
-      <div className={styles.topMetrics}><Metric label="Stability" value={campaign.nationalStats.regimeStability}/><Metric label="Worker support" value={campaign.resources.workerSupport}/><Metric label="Exposure" value={campaign.resources.exposure} danger/><details className={styles.resourceDrawer}><summary>All resources</summary><div><Metric label="Influence" value={campaign.resources.politicalInfluence}/><Metric label="Capacity" value={campaign.resources.organizationalCapacity}/><Metric label="Treasury" value={campaign.resources.treasury}/><Metric label="Security" value={campaign.resources.security}/><Metric label="Legitimacy" value={campaign.resources.partyLegitimacy}/></div></details></div>
-      <div className={styles.topActions}><button onClick={save}>Save</button><button aria-label="Settings" onClick={() => { audioManager.play('dossier'); setScreen('settings'); }}>⚙</button><button className="primary" onClick={() => { audioManager.play(campaign.phase === 'consequences' ? 'telegram' : 'dossier'); advancePhase(); }}>{campaign.phase === 'consequences' ? 'Advance month' : 'Next phase'} →</button></div>
+      <div className={styles.dateBlock} data-tutorial="phase-progress"><strong>{formatGameDate(campaign.currentDate)}</strong><span>Turn {campaign.turnNumber} · {PHASE_LABELS[campaign.phase]}</span><div className={styles.phaseProgress}>{Object.keys(PHASE_LABELS).map(key => <i key={key} className={campaign.phase === key ? styles.phaseActive : ''}/>)}</div></div>
+      <div className={styles.topMetrics}><Metric label="Stability" value={campaign.nationalStats.regimeStability}/><Metric label="Worker support" value={campaign.resources.workerSupport}/><div data-tutorial="exposure-meter"><Metric label="Exposure" value={campaign.resources.exposure} danger/></div><details className={styles.resourceDrawer}><summary>All resources</summary><div><Metric label="Influence" value={campaign.resources.politicalInfluence}/><Metric label="Capacity" value={campaign.resources.organizationalCapacity}/><Metric label="Treasury" value={campaign.resources.treasury}/><Metric label="Security" value={campaign.resources.security}/><Metric label="Legitimacy" value={campaign.resources.partyLegitimacy}/></div></details></div>
+      <div className={styles.topActions}><span className={campaignDirty ? styles.unsaved : styles.saved}>{campaignDirty ? 'Unsaved changes' : 'Saved'}</span><button data-tutorial="save-campaign" onClick={save}>Save</button><button aria-label="Settings" title="Settings" onClick={() => { audioManager.play('dossier'); setScreen('settings'); }}>Settings</button><button className="primary" data-tutorial="advance-phase" onClick={() => { audioManager.play(campaign.phase === 'consequences' ? 'telegram' : 'dossier'); advancePhase(); }}>{campaign.phase === 'consequences' ? 'Advance month' : 'Next phase'} →</button></div>
     </header>
     {notice && <div className={styles.notice} role="status" onAnimationEnd={() => setNotice('')}>{notice}</div>}
-    <div className={styles.mainGrid}>
-      <aside className={styles.leftPanel}><section className={styles.factionIdentity} aria-label="Player faction identity"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="34"/><path d="M20 51Q40 29 60 51M26 29H54M40 18V61"/></svg><div><p className={styles.kicker}>You lead</p><h1>Workers’ Opposition</h1><span>Faction activity prohibited · informal networks intact</span></div><dl><div><dt>Principal leaders</dt><dd>Kollontai · Shliapnikov · Medvedev</dd></div><div><dt>Your background</dt><dd>{humanize(campaign.settings.background)}</dd></div><div><dt>Opening strategy</dt><dd>{campaign.openingStrategy ? humanize(campaign.openingStrategy) : 'Decision pending'}</dd></div><div><dt>Institutional base</dt><dd>Trade unions · factory committees</dd></div></dl></section>{campaign.settings.tutorialEnabled && !campaign.tutorialComplete && <div className={styles.tutorial}><strong>Guided opening</strong><p>{campaign.currentEventId ? 'Resolve the active dossier. Locked choices show the background or resource they require.' : campaign.phase === 'faction_management' ? 'Open Faction: assign organizers, protect cells, or allocate the monthly budget.' : campaign.phase === 'regional_operations' ? 'Select a region and compare named-organizer success and detection chances.' : campaign.phase === 'party_politics' ? 'Open Party, Laws, or Institutions. You have a limited political action economy.' : 'Read the national briefing, map uncertainty, and current objectives before advancing.'}</p><button onClick={() => { campaign.tutorialComplete = true; useGameStore.setState({ campaign: { ...campaign } }); }}>End guidance</button></div>}<h2>Immediate objectives</h2><ol>{campaign.objectives.map(item => <li key={item}>{item}</li>)}</ol><h3>Active operations</h3>{campaign.activeOperations.length ? campaign.activeOperations.map(op => <div className={styles.activeOperation} key={op.id}><strong>{humanize(op.operationId)}</strong><span>{humanize(op.regionId)} · {op.turnsRemaining} turn(s){op.organizerId ? ` · ${campaign.organizers[op.organizerId]?.name}` : ''}</span></div>) : <p className={styles.muted}>No operations in motion.</p>}<h3>Immediate threats</h3><p className={campaign.resources.exposure > 60 ? styles.warning : styles.muted}>{campaign.resources.exposure > 60 ? 'Security attention is approaching a raid threshold.' : 'Surveillance remains serious but contained.'}</p><h3>Turn structure</h3><ul className={styles.phaseList}>{Object.entries(PHASE_LABELS).map(([key,label]) => <li className={campaign.phase === key ? styles.currentPhase : ''} key={key}>{label}</li>)}</ul></aside>
+    <div className={`${styles.mainGrid} ${leftCollapsed ? styles.mainGridLeftCollapsed : ''}`}>
+      <button className={styles.collapseLeft} onClick={toggleLeft} title="Toggle objectives sidebar (Alt+L)">{leftCollapsed ? 'Show objectives' : 'Hide'}</button>
+      {!leftCollapsed && <aside className={styles.leftPanel}><section className={styles.factionIdentity} data-tutorial="faction-identity" aria-label="Player faction identity"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="34"/><path d="M20 51Q40 29 60 51M26 29H54M40 18V61"/></svg><div><p className={styles.kicker}>You organize</p><h1>Workers’ Opposition</h1><span>Modern interface insignia · not a historical emblem</span></div><dl><div><dt>Principal leaders</dt><dd>Kollontai · Shliapnikov · Medvedev</dd></div><div><dt>Your background</dt><dd>{humanize(campaign.settings.background)}</dd></div><div><dt>Opening strategy</dt><dd>{campaign.openingStrategy ? humanize(campaign.openingStrategy) : 'Decision pending'}</dd></div><div><dt>Institutional base</dt><dd>Trade unions · factory committees</dd></div></dl></section>{campaign.settings.tutorialEnabled && !campaign.tutorialComplete && campaign.tutorialPaused && <button className={styles.resumeTutorial} onClick={() => setTutorialStep(campaign.tutorialStep)}>Resume tutorial at step {campaign.tutorialStep + 1}</button>}<h2>Immediate objectives</h2><ol>{campaign.objectives.map(item => <li key={item}>{item}</li>)}</ol><h3>Active operations</h3>{campaign.activeOperations.length ? campaign.activeOperations.map(op => <div className={styles.activeOperation} key={op.id}><strong>{humanize(op.operationId)}</strong><span>{humanize(op.regionId)} · {op.turnsRemaining} turn(s){op.organizerId ? ` · ${campaign.organizers[op.organizerId]?.name}` : ''}</span></div>) : <p className={styles.muted}>No operations in motion.</p>}<h3>Immediate threats</h3><p className={campaign.resources.exposure > 60 ? styles.warning : styles.muted}>{campaign.resources.exposure > 60 ? 'Security attention is approaching a raid threshold.' : 'Surveillance remains serious but contained.'}</p><h3>Turn structure</h3><ul className={styles.phaseList}>{Object.entries(PHASE_LABELS).map(([key,label]) => <li className={campaign.phase === key ? styles.currentPhase : ''} key={key}>{label}</li>)}</ul></aside>}
       <GeographicMap/>
       <aside className={styles.rightPanel}><RegionPanel/></aside>
       <EventDrawer/>
     </div>
     <BottomPanel/>
+    {campaign.settings.tutorialEnabled && !campaign.tutorialComplete && !campaign.tutorialPaused && <TutorialOverlay/>}
+    <BeginnerHint/>
     {turnSummary && <div className={styles.summary} role="dialog" aria-label="Turn report"><p className={styles.kicker}>Monthly resolution</p><h2>Dispatches from the field</h2>{turnSummary.map(line => <p key={line}>{line}</p>)}<button className="primary" onClick={dismissTurnSummary}>Return to map</button></div>}
   </main>;
 }

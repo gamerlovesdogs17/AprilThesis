@@ -66,6 +66,10 @@ export function migrateSave(envelope: SaveEnvelope): SaveEnvelope {
   campaign.institutionHistory ??= [];
   campaign.characterCommunications ??= [];
   campaign.historySnapshots ??= [captureCampaignSnapshot(campaign)];
+  campaign.tutorialStep ??= campaign.settings.tutorialEnabled ? 0 : -1;
+  campaign.tutorialComplete ??= !campaign.settings.tutorialEnabled;
+  campaign.tutorialPaused ??= false;
+  campaign.dismissedHintIds ??= [];
   for (const character of Object.values(campaign.characters)) {
     character.availability ??= character.isArrested ? 'arrested' : character.isExiled ? 'exiled' : 'active';
     character.currentAgenda ??= 'Party business'; character.lastAction ??= 'No autonomous action recorded.';

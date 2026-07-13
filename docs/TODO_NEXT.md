@@ -1,12 +1,10 @@
 # TODO Next
 
-Phase Three acceptance work is complete. These are optional future research or production tasks, not missing items.
+These are the remaining acceptance checks, not a request to expand scope.
 
-1. Commission a specialist historical cartography review of 1921 administrative and military-front boundaries while preserving all gameplay IDs.
-2. Verify every city population, office title, and regional economic description against date-specific primary or scholarly sources.
-3. Add verified public-domain portraits only after creator, date, subject, source, license, local file, manifest record, and fallback behavior are documented.
-4. Add more publication templates and archival issue browsing without flattening editorial voices.
-5. Conduct dedicated screen-reader, color-vision, small-laptop, and performance audits.
-6. Add visual-regression thresholds for the existing before/after screenshot routes.
-7. Deepen organizer interrogation, exile, recovery, and interpersonal consequences without expanding the campaign date range.
-8. Treat any future 1922–1924 campaign as a separately scoped authored phase with new research, balance, content, and testing—not an implicit continuation of Phase Three.
+1. Run `npm run test:e2e` in an environment allowed to open the local Vite URL; confirm all 42 scenarios and inspect any selector drift.
+2. Run the Phase Four screenshot scenario to populate `docs/review-screenshots/phase-four-after/`, then compare every requested map, dock, event, portrait, tutorial, settings, archive, intro, and audio-settings state against the baseline.
+3. Complete one manual seeded March–August 1921 campaign, including save/reload, Settings/Archive return, a named organizer operation, political action, policy campaign, vote, famine context, and an ending.
+4. Listen through every score loop and crossfade on speakers and headphones; synthesis is deterministic but has not received a human audio mastering pass.
+5. Conduct a dedicated screen-reader and narrow-laptop audit. Mobile work in Phase Four targets the cinematic; the campaign remains a desktop strategy layout.
+6. Optional research: locate a clearly identified period portrait for Sergei Medvedev and a better dated circa-1921 Tomsky photograph. Do not replace fallbacks with uncertain subjects.

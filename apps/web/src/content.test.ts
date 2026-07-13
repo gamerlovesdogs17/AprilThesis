@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getContentBundle } from '@april-thesis/content';
+import { getContentBundle, validateStrategicGeography } from '@april-thesis/content';
 
 describe('vertical-slice content', () => {
   it('ships a playable six-month chapter', () => {
@@ -42,5 +42,18 @@ describe('vertical-slice content', () => {
     }
     expect(content.mapGeometries.find(region => region.id === 'moscow')?.neighborIds).toContain('central_industrial');
     expect(content.mapGeometries.find(region => region.id === 'western_siberia')?.neighborIds).toContain('central_siberia');
+  });
+
+  it('validates shared strategic geometry and assigned city points', () => {
+    const result = validateStrategicGeography();
+    expect(Object.entries(result).flatMap(([kind,items]) => (items as string[]).map((item:string) => `${kind}:${item}`))).toEqual([]);
+  });
+
+  it('keeps the national label set restrained and every major character visual honest', () => {
+    const content=getContentBundle();
+    expect(content.cities.filter(city=>city.nationalEssential)).toHaveLength(10);
+    expect(content.characters.filter(character=>character.portraitPath)).toHaveLength(13);
+    expect(content.characters.filter(character=>!character.portraitPath).map(character=>character.id).sort()).toEqual(['medvedev','myasnikov']);
+    expect(content.characters.filter(character=>character.portraitPath).every(character=>character.portraitPath?.startsWith('/assets/portraits/'))).toBe(true);
   });
 });

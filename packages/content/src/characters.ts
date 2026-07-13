@@ -7,6 +7,10 @@ const hist = (date: string, sources: string[]) => ({
   confidence: 'high' as const,
 });
 
+const PORTRAIT_PATHS: Record<string,string> = {
+  kollontai:'/assets/portraits/kollontai.jpg',shliapnikov:'/assets/portraits/shliapnikov.jpg',lenin:'/assets/portraits/lenin.jpg',trotsky:'/assets/portraits/trotsky.jpg',stalin:'/assets/portraits/stalin.jpg',bukharin:'/assets/portraits/bukharin.jpg',zinoviev:'/assets/portraits/zinoviev.jpg',kamenev:'/assets/portraits/kamenev.jpg',dzerzhinsky:'/assets/portraits/dzerzhinsky.jpg',tomsky:'/assets/portraits/tomsky.jpg',rykov:'/assets/portraits/rykov.jpg',rakovsky:'/assets/portraits/rakovsky.png',krupskaya:'/assets/portraits/krupskaya.jpg',
+};
+
 function char(
   id: string,
   name: string,
@@ -26,6 +30,7 @@ function char(
     aliases,
     title,
     description: desc,
+    portraitPath: PORTRAIT_PATHS[id],
     isHistorical: true,
     positionPeriods: [{
       startDate: '1921-03',

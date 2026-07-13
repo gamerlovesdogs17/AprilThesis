@@ -1,10 +1,12 @@
 import type { UserPreferences } from '@april-thesis/shared-types';
 
 export type AudioChannel = 'music' | 'ambience' | 'interface';
+export type MusicContext = 'title' | 'campaign' | 'crisis' | 'vote' | 'famine' | 'ending_hopeful' | 'ending_ambiguous' | 'ending_defeat';
 export type AudioCue =
   | 'wind' | 'railway' | 'factory' | 'meeting' | 'telegraph' | 'printingPress'
   | 'paper' | 'typewriter' | 'stamp' | 'telegram' | 'dossier' | 'mapSelect'
-  | 'warning' | 'titleCue';
+  | 'warning' | 'mainMenuMusic' | 'campaignMusic' | 'tensionMusic' | 'humanitarianMusic'
+  | 'outcomeHopeful' | 'outcomeAmbiguous' | 'outcomeDefeat';
 
 interface CueDefinition { src: string; channel: AudioChannel; loop?: boolean; maxVoices?: number }
 
@@ -22,7 +24,18 @@ export const AUDIO_CUES: Record<AudioCue, CueDefinition> = {
   dossier: { src:'/assets/audio/interface/dossier-open.wav', channel:'interface', maxVoices:2 },
   mapSelect: { src:'/assets/audio/interface/map-select.wav', channel:'interface', maxVoices:2 },
   warning: { src:'/assets/audio/interface/political-warning.wav', channel:'interface' },
-  titleCue: { src:'/assets/audio/music/title-cue.wav', channel:'music' },
+  mainMenuMusic: { src:'/assets/audio/music/main-menu-theme.wav', channel:'music', loop:true },
+  campaignMusic: { src:'/assets/audio/music/campaign-planning.wav', channel:'music', loop:true },
+  tensionMusic: { src:'/assets/audio/music/political-tension.wav', channel:'music', loop:true },
+  humanitarianMusic: { src:'/assets/audio/music/humanitarian-crisis.wav', channel:'music', loop:true },
+  outcomeHopeful: { src:'/assets/audio/music/outcome-hopeful.wav', channel:'music', loop:true },
+  outcomeAmbiguous: { src:'/assets/audio/music/outcome-ambiguous.wav', channel:'music', loop:true },
+  outcomeDefeat: { src:'/assets/audio/music/outcome-defeat.wav', channel:'music', loop:true },
+};
+
+const MUSIC_FOR_CONTEXT: Record<MusicContext, AudioCue> = {
+  title:'mainMenuMusic', campaign:'campaignMusic', crisis:'tensionMusic', vote:'tensionMusic', famine:'humanitarianMusic',
+  ending_hopeful:'outcomeHopeful', ending_ambiguous:'outcomeAmbiguous', ending_defeat:'outcomeDefeat',
 };
 
 function channelVolume(preferences: UserPreferences, channel: AudioChannel) {
@@ -37,15 +50,23 @@ export class AudioManager {
   private loops = new Map<AudioCue, HTMLAudioElement>();
   private lastPlayed = new Map<AudioCue, number>();
   private allElements = new Set<HTMLAudioElement>();
+  private volumeScales = new WeakMap<HTMLAudioElement, number>();
+  private musicContext: MusicContext | null = null;
+  private currentMusic: AudioCue | null = null;
+  private fadeTimers = new Set<number>();
+  private pausedForVisibility = new Set<HTMLAudioElement>();
+  private visibilityBound = false;
 
   configure(preferences: UserPreferences) {
     this.preferences = preferences;
-    for (const [cue, element] of this.loops) element.volume = channelVolume(preferences, AUDIO_CUES[cue].channel);
+    for (const [cue, element] of this.loops) element.volume = channelVolume(preferences, AUDIO_CUES[cue].channel) * (this.volumeScales.get(element) ?? 1);
   }
 
   activate(preferences: UserPreferences) {
+    if (this.active) { this.configure(preferences); return; }
     this.active = true;
     this.configure(preferences);
+    this.bindVisibility();
     if (preferences.audioPreload === 'full' && typeof Audio !== 'undefined') {
       Object.values(AUDIO_CUES).forEach(definition => {
         const element = new Audio(definition.src);
@@ -53,9 +74,11 @@ export class AudioManager {
         element.load();
       });
     }
+    if (this.musicContext && !this.currentMusic) this.setMusicContext(this.musicContext,0);
   }
 
   isActive() { return this.active; }
+  getMusicContext() { return this.musicContext; }
 
   private playFailureFallback(cue: AudioCue) {
     if (!this.preferences || this.preferences.muted || typeof window === 'undefined') return;
@@ -91,6 +114,7 @@ export class AudioManager {
     const element = new Audio(definition.src);
     element.loop = Boolean(definition.loop);
     element.preload = 'auto';
+    this.volumeScales.set(element, options.volumeScale ?? 1);
     element.volume = channelVolume(this.preferences, definition.channel) * (options.volumeScale ?? 1);
     this.allElements.add(element);
     if (definition.loop) this.loops.set(cue, element);
@@ -112,8 +136,53 @@ export class AudioManager {
 
   setScene(cues: AudioCue[]) {
     const keep = new Set(cues);
-    for (const cue of this.loops.keys()) if (!keep.has(cue)) this.stop(cue);
+    for (const cue of this.loops.keys()) if (AUDIO_CUES[cue].channel !== 'music' && !keep.has(cue)) this.stop(cue);
     cues.forEach(cue => this.play(cue));
+  }
+
+  setMusicContext(context: MusicContext, duration = 1200) {
+    if (this.musicContext === context && this.currentMusic) return;
+    this.musicContext = context;
+    const nextCue = MUSIC_FOR_CONTEXT[context];
+    if (!this.active || !this.preferences || typeof Audio === 'undefined') return;
+    const previousCue = this.currentMusic;
+    const previous = previousCue ? this.loops.get(previousCue) : null;
+    const next = this.play(nextCue, { restart:true, volumeScale:previous ? 0 : 1 });
+    if (!next) return;
+    this.currentMusic = nextCue;
+    if (!previous || previous === next || typeof window === 'undefined' || duration <= 0) {
+      this.volumeScales.set(next,1); next.volume=channelVolume(this.preferences,'music');
+      if (previousCue && previousCue!==nextCue)this.stop(previousCue);
+      return;
+    }
+    const steps=16; let step=0; const previousScale=this.volumeScales.get(previous)??1;
+    const timer=window.setInterval(()=>{
+      step+=1; const progress=Math.min(1,step/steps);
+      this.volumeScales.set(previous,previousScale*(1-progress)); this.volumeScales.set(next,progress);
+      if(this.preferences){previous.volume=channelVolume(this.preferences,'music')*previousScale*(1-progress);next.volume=channelVolume(this.preferences,'music')*progress;}
+      if(progress>=1){window.clearInterval(timer);this.fadeTimers.delete(timer);if(previousCue)this.stop(previousCue);}
+    },duration/steps);
+    this.fadeTimers.add(timer);
+  }
+
+  private handleVisibility = () => {
+    if (typeof document === 'undefined') return;
+    if (document.hidden) {
+      for (const element of this.allElements) if (!element.paused) { element.pause(); this.pausedForVisibility.add(element); }
+    } else {
+      for (const element of this.pausedForVisibility) if (this.allElements.has(element)) void element.play().catch(()=>undefined);
+      this.pausedForVisibility.clear();
+    }
+  };
+
+  private bindVisibility() {
+    if (this.visibilityBound || typeof document === 'undefined') return;
+    document.addEventListener('visibilitychange',this.handleVisibility); this.visibilityBound=true;
+  }
+
+  private unbindVisibility() {
+    if (!this.visibilityBound || typeof document === 'undefined') return;
+    document.removeEventListener('visibilitychange',this.handleVisibility); this.visibilityBound=false;
   }
 
   fadeOut(cue: AudioCue, duration = 350) {
@@ -129,11 +198,12 @@ export class AudioManager {
   }
 
   cleanup() {
+    if (typeof window !== 'undefined') for (const timer of this.fadeTimers) window.clearInterval(timer);
     for (const element of this.allElements) { element.pause(); element.currentTime = 0; }
-    this.loops.clear(); this.allElements.clear(); this.lastPlayed.clear();
+    this.loops.clear(); this.allElements.clear(); this.lastPlayed.clear(); this.fadeTimers.clear(); this.pausedForVisibility.clear(); this.currentMusic=null; this.musicContext=null;
   }
 
-  destroy() { this.cleanup(); this.active = false; this.preferences = null; }
+  destroy() { this.cleanup(); this.unbindVisibility(); this.active = false; this.preferences = null; }
 }
 
 export const audioManager = new AudioManager();

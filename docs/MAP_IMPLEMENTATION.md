@@ -1,35 +1,23 @@
 # Map Implementation
 
-## Data pipeline
+## Sources and topology
 
-`scripts/build-map-context.mjs` reads the bundled Natural Earth GeoJSON, selects relevant surrounding features, projects them into a 1000×560 view, and writes `packages/content/src/geography-context.json`. The runtime does not fetch map data.
+Natural Earth provides the exterior land/coast context. Authored strategic composites, city records, rivers, railways, projection helpers, and validation live in `packages/content/src/geography.ts`. Adjacency is derived from collinear shared boundary segments. Development builds expose a boundary/ID overlay and live topology status.
 
-`packages/content/src/geography.ts` is the authored layer for:
+## View hierarchy
 
-- 28 stable strategic-region polygons, centers, label positions, label priority, and adjacency;
-- 21 historical city records with geographic coordinates and importance metadata;
-- Volga, Don, Dnieper, Ural, Ob, and Yenisei context;
-- Trans-Siberian, Moscow-Southern, Southwestern, Caucasus, and Turkestan connections;
-- sea labels, projection bounds, and line/path helpers.
+- **National** below 130%: only 10 nationally essential city candidates, primary rail corridors, and priority region labels.
+- **Regional** from 130%: priority-two cities, secondary rail branches, and more region labels.
+- **Province focus** from 200% with a selected region: the region and immediate neighbors, local city labels, and derived factory/rail/port/union/security/garrison symbols.
 
-## Interaction model
+`layoutCityLabels()` sorts the selected region first, then essential status and authored priority. Approximate label boxes suppress collisions. Hidden labels remain available on hover/focus of their city dots. “Show all city labels” is an explicit preference.
 
-`GeographicMap.tsx` maintains presentation-only zoom and pan state. Zoom is clamped from 85% to 400%. Pointer drag, wheel zoom, plus/minus buttons, Reset, Fit region, SVG keyboard selection, and the accessible region-focus menu all call the same view functions. These values never enter campaign state or seeded resolution.
+## Interaction
 
-Selecting a region centers it at a useful working scale, outlines its polygon, emphasizes immediate neighbors, dims unrelated regions, and opens the existing regional dossier. Region IDs and operation targets are unchanged.
+Wheel and button zoom are pointer-anchored and clamped to 85–400%. Pointer pan starts only after a five-pixel threshold, prevents browser text selection, and does not trigger a region choice at drag end. Single selection centers at a regional scale; double-click, Enter, the focus menu, and Fit region use province scale. Escape, `0`, National view, and the legend return control restore overview. Zoom and pan survive reloads in session storage; no view value enters the seeded campaign.
 
-## Layers
-
-Political overlay, cities, railways, borders, uncertainty, and active operations can be toggled independently. Political opacity is adjustable. The 16 Phase Two map modes remain available.
-
-Influence is a clipped continuous surface assembled from city/region nodes, blurred fields, contour rings, dominant-faction colors, and contested/pattern fallbacks. It is explicitly labeled organizational reach rather than sovereignty.
-
-Labels use priority and zoom thresholds. Important national cities remain visible at overview scale; secondary city and region labels appear on closer zoom.
-
-## Accessibility and failure behavior
-
-Every region path is keyboard focusable and named with its current mode value. Controls have labels, zoom has live output, layers are real checkboxes, and a screen-reader description summarizes available input methods. Natural Earth is contextual only; failure of that derived layer would not remove selectable gameplay regions.
+Political mode uses a unified burgundy territorial surface with clipped faction reach above it. Contested intelligence hatching, internal borders, selected/neighbor emphasis, rivers, rail tiers, operations, and labels remain independently legible. The political overlay is explicitly organizational reach, not sovereignty.
 
 ## Validation
 
-Unit tests assert geometry/region parity, valid adjacency IDs, projected bounds, core city mapping, historical-name notes, and expected river/rail records. Playwright covers focus, zoom clamping, reset, fit-region, layer visibility, selection persistence, 16 modes, and historical city labels.
+Unit coverage checks zoom tiers, selected-label precedence, collision suppression, region/city parity, topology errors, projection bounds, and historical names. Browser scenarios cover zoom, focus, national return, layers, label density, local symbols, drag behavior, and settings return.

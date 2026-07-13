@@ -1,28 +1,9 @@
 # Audio Implementation
 
-## Asset set
+Four ambience loops, six cinematic effects, three interface cues, and seven score files are generated locally by `scripts/generate-audio-assets.mjs`. The score contains a 128-second menu theme, 192-second planning theme, 126-second political-tension theme, 116-second humanitarian theme, and three 28-second outcomes. These are original deterministic synthesis, not Soviet songs, anthems, film music, or copied melodies.
 
-Fourteen local PCM WAV assets cover four channels:
+`audioManager.ts` maps title, campaign, crisis, vote, famine, and three ending contexts to music cues. A 16-step gain crossfade changes context without restarting the current track. Opening Settings or Archive leaves the campaign component and playback position mounted. Master/music/ambience/interface volume, mute, preload, gesture activation, duplicate-loop protection, missing-asset containment, and offline playback are supported.
 
-- ambience: winter wind, distant railway, factory floor, meeting room;
-- cinematic: telegraph, printing press, paper movement, typewriter, stamp, telegram;
-- interface: dossier open, map select, political warning;
-- music: restrained title cue.
+When the document becomes hidden, playing elements pause and only those elements resume when visibility returns. Reduced motion affects visuals, not essential audio controls. Captions describe cinematic cues, and muted play remains fully usable.
 
-The files are deterministic outputs of `scripts/generate-audio-assets.mjs`. No runtime randomness, network request, copied recording, or copyrighted music is required.
-
-## Manager
-
-`apps/web/src/audio/audioManager.ts` owns cue metadata, activation, channel volume, mute, preload policy, loop reuse, short duplicate suppression, one-shots, scene transitions, fades, and teardown. It returns safely when `Audio` is unavailable.
-
-If a local file rejects during playback, the manager removes the failed element and attempts a very short deterministic Web Audio cue as a low-fidelity fallback. The fallback oscillator stops after 120 ms and closes its context; it never replaces the normal asset set or leaves an audio context running after the cinematic.
-
-Playback starts only after a user gesture. The cinematic's enable-audio control activates the manager; settings expose master, music, ambience, and interface values plus mute and preload policy. Scene changes stop obsolete loops, and component cleanup pauses and rewinds every tracked element.
-
-## Caption contract
-
-Cinematic captions describe the sound that is actually requested for the current scene. When audio is disabled, the caption says so rather than claiming unheard effects. Reduced-motion mode remains usable without audio.
-
-## Verification
-
-Unit tests cover gesture activation, master/channel volume multiplication, mute, duplicate loop prevention, and cleanup. Asset validation records and verifies all WAV paths. The browser suite requests every manifest asset from the local server.
+Unit tests cover activation, channel multiplication, mute, duplicate loops, cleanup, rejected-file fallback, adaptive crossfade, same-context reuse, and hidden-tab pause/resume. A human mastering/listening pass remains on the acceptance checklist.

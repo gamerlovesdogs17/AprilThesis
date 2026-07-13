@@ -19,6 +19,68 @@ export interface MapRegionGeometry {
   neighborIds?: string[];
 }
 
+export type MapZoomTier = 'national' | 'regional' | 'province';
+
+export interface CityLabelCandidate {
+  id: string;
+  name: string;
+  regionId: string;
+  x: number;
+  y: number;
+  labelPriority: number;
+  nationalEssential?: boolean;
+  preferredOffset?: readonly [number, number];
+}
+
+export interface CityLabelLayout extends CityLabelCandidate {
+  dotVisible: boolean;
+  labelVisible: boolean;
+  labelX: number;
+  labelY: number;
+  selectedPriority: boolean;
+}
+
+export function getMapZoomTier(zoom: number, selectedRegionId?: string | null): MapZoomTier {
+  if (selectedRegionId && zoom >= 2) return 'province';
+  if (zoom >= 1.3) return 'regional';
+  return 'national';
+}
+
+function boxesOverlap(a: {x:number;y:number;width:number;height:number}, b: {x:number;y:number;width:number;height:number}) {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+export function layoutCityLabels(
+  candidates: CityLabelCandidate[],
+  options: { zoom:number; selectedRegionId?:string|null; neighborIds?:Iterable<string>; allLabels?:boolean },
+): CityLabelLayout[] {
+  const tier = getMapZoomTier(options.zoom, options.selectedRegionId);
+  const neighbors = new Set(options.neighborIds ?? []);
+  const eligible = candidates.filter(city => {
+    if (options.allLabels) return true;
+    if (tier === 'national') return Boolean(city.nationalEssential);
+    if (tier === 'regional') return city.labelPriority <= 2 || city.regionId === options.selectedRegionId;
+    return city.regionId === options.selectedRegionId || (neighbors.has(city.regionId) && city.labelPriority <= 2);
+  });
+  const ordered = eligible.slice().sort((a,b) => {
+    const aSelected = a.regionId === options.selectedRegionId ? 1 : 0;
+    const bSelected = b.regionId === options.selectedRegionId ? 1 : 0;
+    return bSelected - aSelected || Number(Boolean(b.nationalEssential)) - Number(Boolean(a.nationalEssential)) || a.labelPriority - b.labelPriority || a.id.localeCompare(b.id);
+  });
+  const occupied: Array<{x:number;y:number;width:number;height:number}> = [];
+  const visible = new Set<string>();
+  const positions = new Map<string,{x:number;y:number}>();
+  for (const city of ordered) {
+    const [dx,dy] = city.preferredOffset ?? [7,-5];
+    const labelX = city.x + dx; const labelY = city.y + dy;
+    const box = { x:labelX-2, y:labelY-8, width:Math.max(18,city.name.length*4.4+5), height:10 };
+    if (options.allLabels || !occupied.some(other => boxesOverlap(box,other))) { visible.add(city.id); occupied.push(box); }
+    positions.set(city.id,{x:labelX,y:labelY});
+  }
+  const eligibleIds = new Set(eligible.map(city => city.id));
+  return candidates.map(city => ({ ...city, dotVisible:eligibleIds.has(city.id), labelVisible:visible.has(city.id), labelX:positions.get(city.id)?.x ?? city.x+7, labelY:positions.get(city.id)?.y ?? city.y-5, selectedPriority:city.regionId === options.selectedRegionId }));
+}
+
 export interface ContourLine {
   faction: string;
   points: { x: number; y: number }[];

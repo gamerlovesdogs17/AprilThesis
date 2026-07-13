@@ -1,20 +1,17 @@
 # Third-Party Licenses
 
-## Natural Earth
+## Distributed data and images
 
-APRIL THESIS redistributes `ne_110m_admin_0_countries.geojson` as public-domain geographic context.
+- Natural Earth 1:110m country context: public domain.
+- Wikimedia Commons portraits: public domain unless noted below; exact file-page evidence is retained in `apps/web/public/assets/portraits/sources.json`.
+- `trotsky.jpg`, sourced from the Rijksmuseum Commons record: Creative Commons Zero 1.0.
 
-- Project: Natural Earth
-- Source: https://www.naturalearthdata.com/
-- Terms: https://www.naturalearthdata.com/about/terms-of-use/
-- License status: public domain; attribution is not legally required but is provided in `ATTRIBUTION.md`.
+No portrait is hotlinked. Attribution is provided even where the public-domain status does not require it.
 
-## Runtime and development packages
+## Runtime packages
 
-React, Zustand, Vite, TypeScript, Vitest, Playwright, Zod, ESLint, and transitive dependencies retain their upstream licenses as recorded by `package-lock.json`. No package license is extended to original APRIL THESIS content.
+React, Zustand, Vite, TypeScript, Vitest, Playwright, Zod, ESLint, and transitive packages retain upstream licenses recorded by `package-lock.json`.
 
-## Not third-party media
+## Not third-party recordings
 
-The congress reconstruction and generated WAV files are original project assets. No third-party portraits, music, recordings, fonts, or historical photographs are distributed.
-
-The project does not copy text from sources listed in `docs/HISTORICAL_BASELINE.md`; those sources support dates and gameplay interpretations.
+The score, ambience, effects, and interface cues are original synthesized project assets. No copyrighted Soviet song, revolutionary anthem, film score, commercial recording, bundled font, or generated image presented as photography is included.

@@ -1,31 +1,22 @@
-# Completion Report: Phase Three
+# Completion Report: Phase Four Candidate
 
-## Complete result
+## Outcome
 
-The March–August 1921 APRIL THESIS vertical slice now presents its Phase Two political simulation through a coherent geographic map, a six-scene cinematic, a real local audio pipeline, explicit player-faction identity, saved-history charts, visual institutional and vote dashboards, active character dossiers, and differentiated newspaper layouts.
+The requested Phase Four systems are implemented inside the campaign: persisted onboarding, exact-return overlays, a validated strategic map and label hierarchy, grouped workspace, resizable event dossiers, verified portraits, honest faction branding, sustained adaptive music, restrained idle motion, and responsive intro overrides.
 
-No simulation IDs were replaced, no Phase Two system was removed, no post-1921 chapter was authored, and no balance rewrite was performed.
+The work preserves every simulation-facing region, character, event, operation, institution, law, and publication ID. Save migration is additive and seeded resolution code was not rebalanced.
 
-## Major implementation
+## Verification completed
 
-- Replaced disconnected polygons with 28 projected strategic composites plus Natural Earth coast/land context, 21 cities, six rivers, five rail systems, four sea labels, adjacency, zoom/pan/reset/fit, focus, label priorities, layers, and clipped influence surfaces.
-- Replaced all six intro placeholders with specific geographic, newspaper, congress, opposition-meeting, and title compositions. Added a static reduced-motion version and scene-addressable review mode.
-- Added one original generated congress reconstruction and explicit artistic-reconstruction labeling.
-- Added fourteen local deterministic WAV assets and a centralized four-channel audio manager with gesture activation, mute, volumes, preload policy, loop reuse, fades, and cleanup.
-- Added a complete faction overview to setup and a persistent campaign identity block with leaders, ban status, background, opening strategy, institutional base, strengths, weakness, and dilemma.
-- Added saved monthly snapshots and real charts for national conditions, faction position, affected regions, regional comparison, institutional balance, and named-vote seating.
-- Reworked character records into designed dossiers and gave publication templates distinct mastheads, columns, paper, security, foreign, and suppression treatments.
-- Moved secondary top-bar resources into an expandable drawer and kept detailed ledgers behind summary visuals.
-- Upgraded saves to version 3 with migration from older campaign envelopes.
-- Added source, map, audio, visual-system, review, attribution, licensing, and asset documentation.
+- Workspace lint and all six TypeScript workspaces pass.
+- Vitest passes for simulation, content, audio, tutorial, and map-engine coverage.
+- Asset validation passes for one canonical 36-record manifest.
+- The production build passes.
+- The Playwright suite parses and lists 42 scenarios, including the Phase Four acceptance matrix.
+- Baseline Chromium automation completed all 27 pre-change scenarios before teardown; the managed runner then timed out during shutdown.
 
-## Verification
+## Not yet honestly complete
 
-- `npm run validate:all`: passed.
-- 27 Vitest tests passed.
-- 27 Playwright end-to-end scenarios passed.
-- Asset validation passed for 16 local records.
-- Production build passed.
-- Manual in-app browser review passed with after screenshots for all cinematic beats, map modes, focus, and major workspaces.
+The managed in-app browser later rejected the local application URL under its security policy. The Phase Four Playwright scenarios and after-screenshot pack therefore were not executed in this run, and a manual March–August campaign was not completed after the changes. `docs/review-screenshots/phase-four-before/` contains the baseline evidence; the updated capture scenario targets `docs/review-screenshots/phase-four-after/` when browser execution is available.
 
-See `docs/PHASE_THREE_REVIEW.md` for evidence and known limits.
+Because the brief explicitly requires those visual and full-playthrough checks, this report calls the result a **Phase Four candidate**, not final completion. The exact remaining commands and manual matrix are recorded in `docs/PHASE_FOUR_REVIEW.md` and `docs/TODO_NEXT.md`.

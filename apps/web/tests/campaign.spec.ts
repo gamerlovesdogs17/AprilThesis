@@ -2,11 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-async function launchCampaign(page: Page, background?: string) {
+async function launchCampaign(page: Page, background?: string, tutorial=false) {
   await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ introViewed: true, muted: true, reducedMotion: true })));
   await page.goto('/');
   await page.getByRole('button', { name: 'New Campaign' }).click();
   if (background) await page.getByRole('radio', { name: new RegExp(background, 'i') }).click();
+  if (!tutorial) await page.getByLabel('Guided opening').uncheck();
   await page.getByRole('button', { name: 'Open your faction dossier' }).click();
 }
 
@@ -14,6 +15,11 @@ async function chooseAndDismiss(page: Page, name: RegExp | string) {
   await page.getByRole('button', { name }).click();
   const dismiss = page.getByRole('button', { name: 'Return to map' });
   if (await dismiss.isVisible()) await dismiss.click();
+}
+
+async function openDock(page: Page, group: 'Situation'|'Organization'|'Politics'|'Press'|'Saves', tab: string) {
+  await page.getByRole('button', { name: group, exact:true }).click();
+  await page.getByRole('button', { name: tab, exact:true }).click();
 }
 
 async function resolveOpening(page: Page) {
@@ -35,7 +41,7 @@ test('starts a campaign, resolves the opening, uses the map, and saves', async (
   await page.getByRole('button', { name: /Send Organizer 1 turn/ }).click();
   await expect(page.getByText(/Petrograd · 1 turn/)).toBeVisible();
   await page.getByRole('button', { name: 'Save' }).click();
-  await page.getByRole('button', { name: 'Archive', exact: true }).click();
+  await openDock(page,'Saves','Save management');
   await expect(page.getByRole('button', { name: /Manual · March 1921/ })).toBeVisible();
 });
 
@@ -61,7 +67,7 @@ test('faction phase assigns a named organizer to a selected region', async ({ pa
   await launchCampaign(page); await resolveOpening(page);
   await page.getByLabel('Focus strategic region').selectOption('petrograd');
   await page.getByRole('button', { name: /Next phase/ }).click();
-  await page.getByRole('button', { name: 'Faction', exact: true }).click();
+  await openDock(page,'Organization','Faction');
   const anna = page.locator('article').filter({ hasText: 'Anna Sokolova' });
   await anna.getByRole('button', { name: 'Assign to selected region' }).click();
   await expect(anna).toContainText('Assigned');
@@ -70,7 +76,7 @@ test('faction phase assigns a named organizer to a selected region', async ({ pa
 
 test('party workspace exposes all named delegates and imperfect estimates', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
-  await page.getByRole('button', { name: 'Party', exact: true }).click();
+  await openDock(page,'Politics','Party');
   await expect(page.getByText('Union Consultation and Factory Voice Resolution')).toBeVisible();
   await expect(page.getByText('Vladimir Lenin', { exact: true })).toBeVisible();
   await expect(page.getByText('Alexandra Kollontai', { exact: true })).toBeVisible();
@@ -80,7 +86,7 @@ test('party workspace exposes all named delegates and imperfect estimates', asyn
 test('party-politics phase permits a logged delegate lobbying action', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
   for (let i = 0; i < 3; i++) await page.getByRole('button', { name: /Next phase/ }).click();
-  await page.getByRole('button', { name: 'Party', exact: true }).click();
+  await openDock(page,'Politics','Party');
   const kamenev = page.locator('article').filter({ hasText: 'Lev Kamenev' });
   await kamenev.getByRole('button', { name: 'Meet' }).click();
   await expect(kamenev).toContainText('Approaches: private meeting');
@@ -90,7 +96,7 @@ test('party-politics phase permits a logged delegate lobbying action', async ({ 
 test('laws panel lets the player introduce and campaign for a proposal', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
   for (let i = 0; i < 3; i++) await page.getByRole('button', { name: /Next phase/ }).click();
-  await page.getByRole('button', { name: 'Laws', exact: true }).click();
+  await openDock(page,'Politics','Laws');
   const factory = page.locator('article').filter({ hasText: 'Factory Committee Co-Management' });
   await factory.getByRole('button', { name: 'Introduce proposal' }).click();
   await expect(factory).toContainText('Campaigning');
@@ -101,7 +107,7 @@ test('laws panel lets the player introduce and campaign for a proposal', async (
 test('institution approach changes contacts and consumes political action', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
   for (let i = 0; i < 3; i++) await page.getByRole('button', { name: /Next phase/ }).click();
-  await page.getByRole('button', { name: 'Institutions', exact: true }).click();
+  await openDock(page,'Organization','Institutions');
   const unions = page.locator('article').filter({ hasText: 'All-Russian Central Council of Trade Unions' });
   await expect(unions).toContainText('Contacts 15');
   await unions.getByRole('button', { name: /Approach/ }).click();
@@ -120,7 +126,7 @@ test('map offers the complete sixteen-mode political and administrative legend',
 test('newspaper archive preserves contradictory source metadata and filters', async ({ page }) => {
   await launchCampaign(page);
   await chooseAndDismiss(page, /Publicly condemn Kronstadt/);
-  await page.getByRole('button', { name: 'Newspapers', exact: true }).click();
+  await openDock(page,'Press','Newspapers');
   await expect(page.getByText(/WHAT THE OFFICIAL COMMUNIQUÉ OMITS/)).toBeVisible();
   await expect(page.getByText(/contradicts another clipping/)).toBeVisible();
   await page.getByRole('button', { name: 'Factional', exact: true }).click();
@@ -130,7 +136,7 @@ test('newspaper archive preserves contradictory source metadata and filters', as
 test('save manager can duplicate and export a manual slot', async ({ page }) => {
   await launchCampaign(page);
   await page.getByRole('button', { name: 'Save' }).click();
-  await page.getByRole('button', { name: 'Archive', exact: true }).click();
+  await openDock(page,'Saves','Save management');
   const manual = page.getByRole('button', { name: /Manual · March 1921/ }).first();
   const row = manual.locator('..');
   await row.getByRole('button', { name: 'Duplicate' }).click();
@@ -156,9 +162,9 @@ test('map zoom, reset, fit-region, and keyboard controls stay clamped', async ({
 test('geographic layers toggle independently and preserve the selected region', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
   await page.getByLabel('Focus strategic region').selectOption('moscow');
-  await page.getByLabel('city labels').uncheck();
+  await page.getByLabel('cities').uncheck();
   await expect(page.getByTestId('city-layer')).toHaveCount(0);
-  await page.getByLabel('city labels').check();
+  await page.getByLabel('cities').check();
   await expect(page.getByTestId('city-layer')).toBeVisible();
   await expect(page.getByTestId('railway-layer')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Moscow' })).toBeVisible();
@@ -177,25 +183,25 @@ test('map uses historical city names and reveals secondary labels on zoom', asyn
 test('campaign keeps faction identity visible before and after the opening choices', async ({ page }) => {
   await launchCampaign(page, 'Trade-Union Organizer');
   await expect(page.getByLabel('Player faction identity')).toContainText('Workers’ Opposition');
-  await expect(page.getByLabel('Player faction identity')).toContainText('Faction activity prohibited');
+  await expect(page.getByLabel('Player faction identity')).toContainText('not a historical emblem');
   await resolveOpening(page);
   await expect(page.getByLabel('Player faction identity')).toContainText('Trade Union Mobilization');
 });
 
 test('economy, institutions, and party sections render real campaign charts', async ({ page }) => {
   await launchCampaign(page);
-  await page.getByRole('button', { name: 'Economy', exact: true }).click();
+  await openDock(page,'Situation','National');
   await expect(page.getByRole('heading', { name: 'National conditions timeline' })).toBeVisible();
   await expect(page.getByRole('table', { name: 'National conditions by month' })).toHaveCount(1);
-  await page.getByRole('button', { name: 'Institutions', exact: true }).click();
+  await openDock(page,'Organization','Institutions');
   await expect(page.getByRole('heading', { name: 'Institutional balance' })).toBeVisible();
-  await page.getByRole('button', { name: 'Party', exact: true }).click();
+  await openDock(page,'Politics','Party');
   await expect(page.getByRole('heading', { name: 'Bloc seating and commitments' })).toBeVisible();
 });
 
 test('character dossiers use designed portrait fallbacks and active agendas', async ({ page }) => {
   await launchCampaign(page);
-  await page.getByRole('button', { name: 'Characters', exact: true }).click();
+  await openDock(page,'Organization','Characters');
   await expect(page.locator('[class*="characterPortrait"]')).toHaveCount(15);
   await expect(page.getByText('Current agenda', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Vladimir Lenin', { exact: true })).toBeVisible();
@@ -284,7 +290,7 @@ test('selected region exposes comparison data for adjacent regions', async ({ pa
 test('imports and loads a pre-Phase-Three save through the archive', async ({ page }) => {
   await launchCampaign(page);
   await page.getByRole('button', { name: 'Save' }).click();
-  await page.getByRole('button', { name: 'Archive', exact: true }).click();
+  await openDock(page,'Saves','Save management');
   const manual = page.getByRole('button', { name: /Manual · March 1921/ }).first();
   const downloadEvent = page.waitForEvent('download');
   await manual.locator('..').getByRole('button', { name: 'Export' }).click();
@@ -298,7 +304,7 @@ test('imports and loads a pre-Phase-Three save through the archive', async ({ pa
   await page.getByLabel('Import save file').setInputFiles({ name: 'phase-two-save.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacy)) });
   await expect(page.getByRole('alert')).toContainText('Imported phase-two-save.json');
   await page.getByRole('button', { name: /Manual · March 1921/ }).last().click();
-  await page.getByRole('button', { name: 'Economy', exact: true }).click();
+  await openDock(page,'Situation','National');
   await expect(page.getByText(/1 snapshot · real campaign history/)).toBeVisible();
 });
 
@@ -311,13 +317,13 @@ test('plays a full month and records history without console errors', async ({ p
   await page.getByRole('button', { name: /Advance month/ }).click();
   await page.getByRole('button', { name: 'Return to map' }).click();
   await expect(page.getByText('April 1921', { exact: true }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Economy', exact: true }).click();
+  await openDock(page,'Situation','National');
   await expect(page.getByText(/2 snapshots · real campaign history/)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test('captures final national, western, Caucasus, and Siberian review views', async ({ page }) => {
-  const output = resolve('../../docs/review-screenshots/phase-three-after');
+test('captures final national, western, Caucasus, Siberian, and workspace review views', async ({ page }) => {
+  const output = resolve('../../docs/review-screenshots/phase-four-after');
   await launchCampaign(page); await resolveOpening(page);
   await page.screenshot({ path: resolve(output, 'main-political-map.png') });
   for (const [region, file] of [['moscow','western-russia-zoom.png'],['georgia','caucasus-zoom.png'],['western_siberia','siberia-zoom.png']] as const) {
@@ -330,6 +336,6 @@ test('captures final national, western, Caucasus, and Siberian review views', as
   await page.screenshot({ path: resolve(output, 'city-labels.png') });
   await page.getByLabel('Map mode').selectOption('railway_infrastructure');
   await page.screenshot({ path: resolve(output, 'railway-layer.png') });
-  await page.getByRole('button', { name: 'Economy', exact: true }).click();
+  await openDock(page,'Situation','National');
   await page.screenshot({ path: resolve(output, 'national-charts.png') });
 });

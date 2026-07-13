@@ -51,9 +51,16 @@ describe('deterministic simulation', () => {
     delete (envelope.campaign as Partial<typeof envelope.campaign>).historySnapshots;
     delete envelope.checksum;
     const migrated = migrateSave(envelope);
-    expect(migrated.saveVersion).toBe(3);
+    expect(migrated.saveVersion).toBe(4);
     expect(migrated.campaign.historySnapshots).toHaveLength(1);
     expect(migrated.campaign.currentDate).toBe('1921-03');
+  });
+
+  it('migrates and preserves persisted tutorial progress', () => {
+    const state=campaign();state.settings.tutorialEnabled=true;state.tutorialStep=11;state.tutorialComplete=false;
+    const envelope=createSaveEnvelope(state,'Guided legacy');envelope.saveVersion=3;delete (envelope.campaign as Partial<typeof envelope.campaign>).tutorialPaused;delete (envelope.campaign as Partial<typeof envelope.campaign>).dismissedHintIds;delete envelope.checksum;
+    const migrated=migrateSave(envelope);
+    expect(migrated.campaign.tutorialStep).toBe(11);expect(migrated.campaign.tutorialComplete).toBe(false);expect(migrated.campaign.tutorialPaused).toBe(false);expect(migrated.campaign.dismissedHintIds).toEqual([]);
   });
 
   it('applies nested regional influence and relationship effects', () => {
@@ -84,6 +91,12 @@ describe('deterministic simulation', () => {
     expect(next.currentDate).toBe('1921-04');
     expect(next.turnNumber).toBe(2);
     expect(next.regions.moscow.intelligenceAge).toBe(1);
+  });
+
+  it('keeps the full March through August chapter reachable without an early date guard', () => {
+    let state=campaign();const dates=[state.currentDate];
+    for(let month=0;month<5;month+=1){state=advanceMonth(state);dates.push(state.currentDate);}
+    expect(dates).toEqual(['1921-03','1921-04','1921-05','1921-06','1921-07','1921-08']);expect(state.turnNumber).toBe(6);expect(state.gameOver).toBe(false);
   });
 
   it('selects a specific chapter ending before the survival fallback', () => {

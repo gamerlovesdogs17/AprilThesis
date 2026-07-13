@@ -1,63 +1,38 @@
 # APRIL THESIS
 
-**The Revolution After Victory** is a local-first, single-player political strategy game set in Soviet Russia in 1921. The finished playable chapter covers March through August 1921. The player leads a fictional senior organizer in the Workers' Opposition while historical figures, institutions, delegates, regional organizations, and rival blocs pursue their own agendas.
+**The Revolution After Victory** is a local-first political strategy game about the Workers' Opposition in Soviet Russia. The playable chapter remains March–August 1921. Phase Four improves how players learn, navigate, and read the existing simulation; it does not rebalance Phase Two or add a later chapter.
 
-## Run locally
+## Run and verify
 
 Requires Node.js 20 or newer.
 
 ```bash
 npm install
 npm run dev
-```
-
-Open `http://127.0.0.1:5173`. No account, backend, or network connection is required after dependencies are installed.
-
-## Verification
-
-```bash
-npm run lint
 npm run validate:all
 npm run test:e2e
 ```
 
-`validate:all` runs workspace type checking, 27 Vitest tests, asset validation, and the production build. The Playwright suite contains 27 passing campaign, cinematic, map, audio, asset, save-migration, screenshot, and accessibility scenarios.
+The static production build is written to `apps/web/dist`. The game has no backend and all distributed media is local.
 
-## Political systems
+## Current systems
 
-- A five-phase monthly turn from March through August, with setup requirements and historically constrained or plausible event options.
-- Eight named organizers with skills, fatigue, exposure, assignments, arrest status, and operation eligibility.
-- Eight faction blocs with leaders, support, satisfaction, preferences, red lines, willingness to work underground, and split risk.
-- A June composite Central Committee vote resolved as a deterministic named roll across 28 historical or clearly labeled composite delegates. The board exposes lean, reliability, concerns, lobbying history, abstentions, and the final tally.
-- Direct campaigns for Mandatory Union Consultation, Factory Committee Co-Management, and a Protected Internal Party Press. Passed laws apply immediate and monthly effects.
-- Autonomous character and institution agendas, relationships, pressure, institutional attitude/autonomy, and visible communications.
-- Fifteen regional operations with named-organizer assignment, phase/resource/skill/intelligence gates, cooldowns, transparent success/detection chances, arrest and release consequences, and persistent regional effects.
-- A projected geographic strategic map with 28 stable gameplay regions, Natural Earth context, historical city labels, major rivers and railways, independent layers, mouse/keyboard zoom, pan, reset, and fit-region controls.
-- Sixteen map modes, including clipped influence-surface rendering, uncertainty treatment, administrative and infrastructure views.
-- Ten newspapers and bulletins with official/factional contradictions, suppression markers, filters, and article links.
-- A six-scene skippable/replayable cinematic, persistent Workers' Opposition identity, historical campaign charts, institutional and vote diagrams, and designed character portrait fallbacks.
-- Fourteen deterministic local WAV assets controlled through master, music, ambience, and interface channels with mute, preload, duplicate-loop prevention, fades, and cleanup.
+- Five-phase deterministic monthly turns, 28 stable strategic regions, named organizers, faction blocs, institutions, characters, policy campaigns, delegate politics, regional operations, newspapers, and versioned local saves.
+- An 18-step persisted first-month tutorial plus separately configurable beginner hints.
+- Return-preserving Settings, Archive, and Credits overlays; browser Back and Escape return to the exact campaign.
+- A unified strategic land view with derived shared-border adjacency, topology validation, three zoom tiers, collision-managed labels, province focus, local symbols, layers, keyboard focus, and a return-to-national control.
+- A five-group non-scrolling command dock that can collapse without changing campaign state.
+- Compact, expanded, and minimized event dossiers. Raw source identifiers appear only in Research Mode.
+- Thirteen verified public-domain or CC0 historical portraits and two clearly labeled dossier fallbacks.
+- Seven original sustained music files with title/campaign/crisis/vote/famine/ending contexts, crossfades, offline looping, volume controls, and hidden-tab pause/resume.
+- A responsive, skippable, captioned introduction with reduced-motion treatment and an explicitly modern Workers' Opposition interface insignia.
 
-## Structure
+## Saves and compatibility
 
-- `apps/web`: React 19, Zustand, Vite UI, Playwright scenarios, and local persistence.
-- `packages/shared-types`: campaign, political, vote, save, map, and content contracts.
-- `packages/content-schema`: Zod schemas for authored content.
-- `packages/content`: regions, geometry, characters, events, institutions, laws, operations, publications, and endings.
-- `packages/simulation`: seeded campaign/politics simulation, turn resolution, effects, endings, and IndexedDB saves.
-- `packages/map-engine`: map-mode calculations, faction colors/patterns, uncertainty, and influence fields.
-- `docs`: audit, research baseline, system notes, progress, and continuation work.
+Save version 4 adds tutorial pause/progress and hint-dismissal fields. Earlier envelopes are migrated additively; content IDs, campaign seed state, political calculations, and the March–August date range are unchanged. An active local session also restores the selected region, character, map mode, command group, sidebar state, and tutorial progress after a reload; map zoom/pan is kept in session storage.
 
-## Saves
+## Assets and historical honesty
 
-Saves use a versioned `SaveEnvelope`, checksum validation, deterministic state, and IndexedDB. Version 3 adds compact monthly visual-history snapshots and migrates earlier political-system saves without changing campaign IDs or seeded outcomes. The UI supports manual save, load/continue, duplicate, export, import, delete, rotating autosaves, and quarantine of invalid imports. Ironman uses one protected campaign slot and disables duplication/deletion in the manager.
+`apps/web/public/assets/assets-manifest.json` is the sole canonical asset manifest. `npm run validate:assets` rejects missing records, untracked public files, and a reintroduced root manifest. Portrait provenance and display-crop notes are in `apps/web/public/assets/portraits/sources.json` and `docs/ASSET_SOURCES.md`.
 
-## Historical and content workflow
-
-Content is TypeScript data validated by shared types. Historical events include a classification, date, and source identifiers. Composite delegates, meetings, and votes are labeled as simulations rather than archival claims. Add claims and source URLs to `docs/HISTORICAL_BASELINE.md`, and mark uncertainty, simplification, and gameplay interpretation.
-
-## Assets and deployment
-
-The build uses original CSS/SVG, one clearly labeled original generated congress reconstruction, fourteen repository-generated WAV files, and public-domain Natural Earth geographic context. All assets are local and recorded in `apps/web/public/assets/assets-manifest.json`. See `ATTRIBUTION.md`, `THIRD_PARTY_LICENSES.md`, and `docs/ASSET_SOURCES.md` before adding media.
-
-`npm run build` writes the static site to `apps/web/dist`. Any static host can serve it; no backend is configured or required.
+Research did not establish a distinct documented Workers' Opposition emblem. The code-native mark remains only as a labeled modern interface insignia. See `ATTRIBUTION.md`, `THIRD_PARTY_LICENSES.md`, and `docs/PHASE_FOUR_REVIEW.md` for evidence and remaining verification limits.

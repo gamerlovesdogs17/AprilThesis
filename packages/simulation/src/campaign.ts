@@ -269,6 +269,8 @@ export function createCampaign(
     newspapers: [],
     tutorialStep: settings.tutorialEnabled ? 0 : -1,
     tutorialComplete: !settings.tutorialEnabled,
+    tutorialPaused: false,
+    dismissedHintIds: [],
     gameOver: false,
     endingId: null,
     rngState: rng.getState(),

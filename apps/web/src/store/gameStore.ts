@@ -38,25 +38,35 @@ import {
 import type { EventDefinition } from '@april-thesis/content-schema';
 import { getContentBundle, getEventById } from '@april-thesis/content';
 import { audioManager } from '../audio/audioManager';
+import { clampTutorialStep, TUTORIAL_STEPS } from '../tutorial/tutorialSystem';
 
 export type Screen = 'intro' | 'title' | 'setup' | 'game' | 'archive' | 'settings' | 'credits' | 'ending';
+export type AuxiliaryScreen = 'archive' | 'settings' | 'credits';
 
 interface GameStore {
   screen: Screen;
+  overlayScreen: AuxiliaryScreen | null;
+  returnScreen: Screen;
   campaign: CampaignState | null;
   content: ReturnType<typeof getContentBundle>;
   selectedRegionId: string | null;
   selectedCharacterId: string | null;
   mapMode: MapMode;
   leftSidebarCollapsed: boolean;
+  bottomWorkspaceCollapsed: boolean;
+  bottomGroup: string;
   bottomTab: string;
   preferences: UserPreferences;
   saveSlots: SaveSlot[];
   turnSummary: string[] | null;
   audioEnabled: boolean;
   pendingNewspaper: { headline: string; publication: string } | null;
+  campaignDirty: boolean;
 
   setScreen: (screen: Screen) => void;
+  openAuxiliary: (screen: AuxiliaryScreen) => void;
+  closeAuxiliary: () => void;
+  returnToTitle: () => void;
   startCampaign: (settings: CampaignSettings) => void;
   loadCampaign: (envelope: { campaign: CampaignState }) => void;
   setPhase: (phase: TurnPhase) => void;
@@ -65,7 +75,17 @@ interface GameStore {
   selectCharacter: (id: string | null) => void;
   setMapMode: (mode: MapMode) => void;
   toggleLeftSidebar: () => void;
+  toggleBottomWorkspace: () => void;
+  setBottomGroup: (group: string, tab?: string) => void;
   setBottomTab: (tab: string) => void;
+  setTutorialStep: (step: number) => void;
+  nextTutorialStep: () => void;
+  previousTutorialStep: () => void;
+  pauseTutorial: () => void;
+  skipTutorial: () => void;
+  restartTutorial: () => void;
+  dismissHint: (hintId: string, permanently?: boolean) => void;
+  resetHints: () => void;
   resolveEventChoice: (eventId: string, choiceId: string) => void;
   startOperation: (regionId: string, operationId: string, organizerId?: string) => void;
   performFactionAction: (action: FactionActionId, organizerId?: string, targetId?: string) => void;
@@ -97,8 +117,43 @@ const defaultPrefs: UserPreferences = {
   mapAnimation: true,
   ambientVisualEffects: true,
   audioPreload: 'full',
+  beginnerHintMode: 'first_campaign',
+  hiddenHintIds: [],
+  campaignsStarted: 0,
+  researchMode: false,
+  allCityLabels: false,
   ...loadPreferences() as Partial<UserPreferences>,
 };
+
+const ACTIVE_SESSION_KEY = 'april-thesis-active-session-v4';
+
+interface ActiveSession {
+  campaign: CampaignState;
+  wasActive: boolean;
+  selectedRegionId: string | null;
+  selectedCharacterId: string | null;
+  mapMode: MapMode;
+  bottomGroup: string;
+  bottomTab: string;
+  leftSidebarCollapsed: boolean;
+  bottomWorkspaceCollapsed: boolean;
+}
+
+function loadActiveSession(): ActiveSession | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw) as ActiveSession;
+    if (!session.wasActive || !session.campaign?.settings?.seed) return null;
+    session.campaign.tutorialPaused ??= false;
+    session.campaign.dismissedHintIds ??= [];
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+const activeSession = loadActiveSession();
 
 function queueMonthEvents(state: CampaignState, events: EventDefinition[]): CampaignState {
   const next = structuredClone(state);
@@ -126,21 +181,55 @@ function processPendingEvent(state: CampaignState): CampaignState {
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  screen: defaultPrefs.introViewed ? 'title' : 'intro',
-  campaign: null,
+  screen: activeSession ? 'game' : defaultPrefs.introViewed ? 'title' : 'intro',
+  overlayScreen: null,
+  returnScreen: 'title',
+  campaign: activeSession?.campaign ?? null,
   content: getContentBundle(),
-  selectedRegionId: null,
-  selectedCharacterId: null,
-  mapMode: 'political_influence',
-  leftSidebarCollapsed: false,
-  bottomTab: 'economy',
+  selectedRegionId: activeSession?.selectedRegionId ?? null,
+  selectedCharacterId: activeSession?.selectedCharacterId ?? null,
+  mapMode: activeSession?.mapMode ?? 'political_influence',
+  leftSidebarCollapsed: activeSession?.leftSidebarCollapsed ?? false,
+  bottomWorkspaceCollapsed: activeSession?.bottomWorkspaceCollapsed ?? false,
+  bottomGroup: activeSession?.bottomGroup ?? 'situation',
+  bottomTab: activeSession?.bottomTab ?? 'economy',
   preferences: defaultPrefs,
   saveSlots: [],
   turnSummary: null,
   audioEnabled: false,
   pendingNewspaper: null,
+  campaignDirty: Boolean(activeSession),
 
-  setScreen: (screen) => set({ screen }),
+  setScreen: (screen) => {
+    const state = get();
+    if (state.screen === 'game' && state.campaign && ['archive','settings','credits'].includes(screen)) {
+      state.openAuxiliary(screen as AuxiliaryScreen);
+      return;
+    }
+    set({ screen, overlayScreen:null, returnScreen:state.screen });
+  },
+
+  openAuxiliary: (screen) => {
+    const state = get();
+    if (state.screen === 'game' && state.campaign) {
+      if (typeof history !== 'undefined') history.pushState({ aprilThesisOverlay:screen }, '', location.href);
+      set({ overlayScreen:screen, returnScreen:'game' });
+      return;
+    }
+    set({ screen, overlayScreen:null, returnScreen:state.screen });
+  },
+
+  closeAuxiliary: () => {
+    const state = get();
+    if (state.overlayScreen) {
+      if (typeof history !== 'undefined' && history.state?.aprilThesisOverlay) history.back();
+      set({ overlayScreen:null });
+      return;
+    }
+    set({ screen:state.returnScreen, returnScreen:'title' });
+  },
+
+  returnToTitle: () => set({ screen:'title', overlayScreen:null, returnScreen:'title' }),
 
   startCampaign: (settings) => {
     const content = get().content;
@@ -153,17 +242,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let campaign = createCampaign(settings, bundle);
     campaign = queueMonthEvents(campaign, content.events);
     campaign = processPendingEvent(campaign);
-    set({ campaign, screen: 'game' });
+    const preferences = { ...get().preferences, campaignsStarted:get().preferences.campaignsStarted + 1 };
+    savePreferences(preferences as unknown as Record<string, unknown>);
+    set({ campaign, preferences, screen:'game', overlayScreen:null, selectedRegionId:null, selectedCharacterId:null, bottomGroup:'situation', bottomTab:'economy', campaignDirty:true });
   },
 
   loadCampaign: (envelope) => {
-    set({ campaign: envelope.campaign, screen: 'game' });
+    envelope.campaign.tutorialPaused ??= false;
+    envelope.campaign.dismissedHintIds ??= [];
+    set({ campaign:envelope.campaign, screen:'game', overlayScreen:null, campaignDirty:false });
   },
 
   setPhase: (phase) => {
     const { campaign } = get();
     if (!campaign) return;
-    set({ campaign: { ...campaign, phase } });
+    set({ campaign: { ...campaign, phase }, campaignDirty:true });
   },
 
   advancePhase: () => {
@@ -181,14 +274,69 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let next = { ...current, phase: nextPhase };
     next = queueMonthEvents(next, content.events);
     next = processPendingEvent(next);
-    set({ campaign: next });
+    set({ campaign: next, campaignDirty:true });
   },
 
   selectRegion: (id) => set({ selectedRegionId: id, selectedCharacterId: null }),
   selectCharacter: (id) => set({ selectedCharacterId: id, selectedRegionId: null }),
   setMapMode: (mode) => set({ mapMode: mode }),
   toggleLeftSidebar: () => set(s => ({ leftSidebarCollapsed: !s.leftSidebarCollapsed })),
+  toggleBottomWorkspace: () => set(s => ({ bottomWorkspaceCollapsed:!s.bottomWorkspaceCollapsed })),
+  setBottomGroup: (group, tab) => set({ bottomGroup:group, ...(tab ? { bottomTab:tab } : {}) }),
   setBottomTab: (tab) => set({ bottomTab: tab }),
+
+  setTutorialStep: (step) => {
+    const campaign = get().campaign; if (!campaign) return;
+    set({ campaign:{ ...campaign, tutorialStep:clampTutorialStep(step), tutorialPaused:false }, campaignDirty:true });
+  },
+
+  nextTutorialStep: () => {
+    const campaign = get().campaign; if (!campaign || campaign.tutorialComplete) return;
+    if (campaign.tutorialStep >= TUTORIAL_STEPS.length - 1) {
+      if (campaign.turnNumber > 1) set({ campaign:{ ...campaign, tutorialStep:TUTORIAL_STEPS.length - 1, tutorialComplete:true, tutorialPaused:false }, campaignDirty:true });
+      return;
+    }
+    set({ campaign:{ ...campaign, tutorialStep:campaign.tutorialStep + 1, tutorialPaused:false }, campaignDirty:true });
+  },
+
+  previousTutorialStep: () => {
+    const campaign = get().campaign; if (!campaign || campaign.tutorialComplete) return;
+    set({ campaign:{ ...campaign, tutorialStep:clampTutorialStep(campaign.tutorialStep - 1), tutorialPaused:false }, campaignDirty:true });
+  },
+
+  pauseTutorial: () => {
+    const campaign = get().campaign; if (!campaign || campaign.tutorialComplete) return;
+    set({ campaign:{ ...campaign, tutorialPaused:true }, campaignDirty:true });
+  },
+
+  skipTutorial: () => {
+    const campaign = get().campaign; if (!campaign) return;
+    set({ campaign:{ ...campaign, tutorialComplete:true, tutorialPaused:false }, campaignDirty:true });
+  },
+
+  restartTutorial: () => {
+    const campaign = get().campaign; if (!campaign) return;
+    set({ campaign:{ ...campaign, settings:{ ...campaign.settings, tutorialEnabled:true }, tutorialStep:0, tutorialComplete:false, tutorialPaused:false }, campaignDirty:true });
+  },
+
+  dismissHint: (hintId, permanently=false) => {
+    const state = get(); const campaign = state.campaign; if (!campaign) return;
+    const dismissedHintIds = Array.from(new Set([...campaign.dismissedHintIds, hintId]));
+    if (permanently) {
+      const preferences = { ...state.preferences, hiddenHintIds:Array.from(new Set([...state.preferences.hiddenHintIds, hintId])) };
+      savePreferences(preferences as unknown as Record<string, unknown>);
+      set({ campaign:{ ...campaign, dismissedHintIds }, preferences, campaignDirty:true });
+      return;
+    }
+    set({ campaign:{ ...campaign, dismissedHintIds }, campaignDirty:true });
+  },
+
+  resetHints: () => {
+    const state = get();
+    const preferences = { ...state.preferences, hiddenHintIds:[] };
+    savePreferences(preferences as unknown as Record<string, unknown>);
+    set({ preferences, ...(state.campaign ? { campaign:{ ...state.campaign, dismissedHintIds:[] }, campaignDirty:true } : {}) });
+  },
 
   resolveEventChoice: (eventId, choiceId) => {
     const { campaign, content } = get();
@@ -276,11 +424,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (ending) {
       next.gameOver = true;
       next.endingId = ending.id;
-      set({ campaign: next, screen: 'ending' });
+      set({ campaign: next, screen: 'ending', campaignDirty:true });
       return;
     }
 
-    set({ campaign: next, turnSummary: headlines.length ? headlines : null });
+    set({ campaign: next, turnSummary: headlines.length ? headlines : null, campaignDirty:true });
   },
 
   startOperation: (regionId, operationId, organizerId) => {
@@ -317,37 +465,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
       next.organizerAssignments[organizerId] = regionId;
     }
 
-    set({ campaign: next });
+    set({ campaign: next, campaignDirty:true });
   },
 
   performFactionAction: (action, organizerId, targetId) => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: performFactionAction(campaign, action, organizerId, targetId) });
+    set({ campaign: performFactionAction(campaign, action, organizerId, targetId), campaignDirty:true });
   },
 
   lobbyDelegate: (delegateId, action) => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: lobbyDelegate(campaign, delegateId, action) });
+    set({ campaign: lobbyDelegate(campaign, delegateId, action), campaignDirty:true });
   },
 
   resolvePoliticalVote: () => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: resolveVote(campaign) });
+    set({ campaign: resolveVote(campaign), campaignDirty:true });
   },
 
   beginPolicyCampaign: (proposalId) => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: beginPolicyCampaign(campaign, proposalId) });
+    set({ campaign: beginPolicyCampaign(campaign, proposalId), campaignDirty:true });
   },
 
   campaignForProposal: (proposalId) => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: campaignForProposal(campaign, proposalId) });
+    set({ campaign: campaignForProposal(campaign, proposalId), campaignDirty:true });
   },
 
   approachInstitution: (institutionId) => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: influenceInstitution(campaign, institutionId) });
+    set({ campaign: influenceInstitution(campaign, institutionId), campaignDirty:true });
   },
 
   updatePreferences: (prefs) => {
@@ -366,6 +514,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const effectiveSlot = campaign.settings.ironman ? 'ironman-campaign' : slotId;
     const envelope = createSaveEnvelope(campaign, campaign.settings.ironman ? `Ironman · ${campaign.settings.seed}` : name);
     await saveToSlot(effectiveSlot, envelope);
+    set({ campaignDirty:false });
     await get().refreshSaveSlots();
   },
 
@@ -396,13 +545,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (ending) {
       next.gameOver = true;
       next.endingId = ending.id;
-      set({ campaign: next, screen: 'ending', turnSummary: headlines });
+      set({ campaign: next, screen: 'ending', turnSummary: headlines, campaignDirty:true });
       const envelope = createSaveEnvelope(next, `Autosave · ${next.currentDate}`);
       void saveToSlot(`autosave-${next.turnNumber % 3}`, envelope).then(() => get().refreshSaveSlots());
       return;
     }
 
-    set({ campaign: next, turnSummary: headlines });
+    set({ campaign: next, turnSummary: headlines, campaignDirty:true });
     const envelope = createSaveEnvelope(next, `Autosave · ${next.currentDate}`);
     void saveToSlot(`autosave-${next.turnNumber % 3}`, envelope).then(() => get().refreshSaveSlots());
   },
@@ -410,9 +559,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
   triggerEvent: (eventId) => {
     const { campaign } = get();
     if (!campaign) return;
-    set({ campaign: { ...campaign, currentEventId: eventId } });
+    set({ campaign: { ...campaign, currentEventId: eventId }, campaignDirty:true });
   },
 
   dismissTurnSummary: () => set({ turnSummary: null, pendingNewspaper: null }),
   setAudioEnabled: (enabled) => set({ audioEnabled: enabled }),
 }));
+
+if (typeof window !== 'undefined') {
+  useGameStore.subscribe(state => {
+    if (!state.campaign) {
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
+      return;
+    }
+    const session: ActiveSession = {
+      campaign:state.campaign,
+      wasActive:state.screen === 'game',
+      selectedRegionId:state.selectedRegionId,
+      selectedCharacterId:state.selectedCharacterId,
+      mapMode:state.mapMode,
+      bottomGroup:state.bottomGroup,
+      bottomTab:state.bottomTab,
+      leftSidebarCollapsed:state.leftSidebarCollapsed,
+      bottomWorkspaceCollapsed:state.bottomWorkspaceCollapsed,
+    };
+    try { localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session)); }
+    catch { /* Indexed saves remain available when session storage is full or disabled. */ }
+  });
+}
