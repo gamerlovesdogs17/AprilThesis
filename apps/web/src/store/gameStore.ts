@@ -29,6 +29,7 @@ import {
   runPoliticalMonth,
   isEventChoiceEligible,
   getOperationEligibility,
+  appendCampaignSnapshot,
   type ContentBundle,
   type SaveSlot,
   type FactionActionId,
@@ -36,6 +37,7 @@ import {
 } from '@april-thesis/simulation';
 import type { EventDefinition } from '@april-thesis/content-schema';
 import { getContentBundle, getEventById } from '@april-thesis/content';
+import { audioManager } from '../audio/audioManager';
 
 export type Screen = 'intro' | 'title' | 'setup' | 'game' | 'archive' | 'settings' | 'credits' | 'ending';
 
@@ -91,6 +93,10 @@ const defaultPrefs: UserPreferences = {
   textScale: 1,
   introViewed: false,
   colorblindMode: false,
+  enhancedInfluence: true,
+  mapAnimation: true,
+  ambientVisualEffects: true,
+  audioPreload: 'full',
   ...loadPreferences() as Partial<UserPreferences>,
 };
 
@@ -347,6 +353,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   updatePreferences: (prefs) => {
     const updated = { ...get().preferences, ...prefs };
     savePreferences(updated as Record<string, unknown>);
+    audioManager.configure(updated);
     set({ preferences: updated });
     if (prefs.reducedMotion !== undefined) {
       document.documentElement.dataset.reducedMotion = String(prefs.reducedMotion);
@@ -377,6 +384,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     next = advanceMonth(next);
     next = runPoliticalMonth(next);
+    next = appendCampaignSnapshot(next);
     next = queueMonthEvents(next, content.events);
     next = processPendingEvent(next);
 

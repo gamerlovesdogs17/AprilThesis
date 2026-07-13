@@ -4,6 +4,7 @@
 .paperPanel h1 { color: var(--color-red-dark); font-size: clamp(2rem, 5vw, 3.4rem); max-width: 850px; line-height: 1; text-transform: uppercase; }
 .eyebrow { color: var(--color-red); text-transform: uppercase; letter-spacing: .18em; font-weight: 700; margin-bottom: 12px; }
 .lead { max-width: 760px; line-height: 1.6; margin: 18px 0 28px; }
+.factionOverview { display:grid; grid-template-columns:150px 1fr; gap:24px; margin:20px 0 28px; padding:22px; background:#2a211a; color:#ead8bb; border-left:8px solid #8b1a1a; box-shadow:inset 0 0 0 1px #6f5741; }.factionOverview h2 { color:#f2d4a8; font-size:2rem; margin-bottom:8px; }.factionOverview p { line-height:1.5; }.factionSeal { display:grid; align-content:center; justify-items:center; gap:8px; color:#bda77f; }.factionSeal svg { width:112px; fill:none; stroke:#d2a65e; stroke-width:4; }.factionSeal small { font-size:.58rem; }.factionBrief { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin-top:14px; }.factionBrief span { padding:8px; background:#17120f; font-size:.7rem; }.factionBrief b { display:block; color:#d9a95f; text-transform:uppercase; letter-spacing:.08em; font-size:.58rem; margin-bottom:3px; }
 .cardGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .choiceCard, .selectedCard { text-align: left; min-height: 105px; display: flex; flex-direction: column; gap: 8px; background: #e7d3b7; color: #2a2218; border-color: #a78b68; }
 .choiceCard span, .selectedCard span { font-size: .8rem; line-height: 1.4; }
@@ -22,4 +23,4 @@
 .menuList button { text-align: left; }
 .saveRow { display:grid; grid-template-columns:minmax(220px,1fr) auto auto auto; gap:7px; align-items:stretch; }.saveRow > button:first-child { background:#e7d3b7; color:#2a2218; border-color:#9b7e59; }.saveRow span { font-size:.72rem; }
 .statLine { display: flex; justify-content: space-between; border-bottom: 1px dotted #9b7e59; padding: 8px 0; }
-@media (max-width: 800px) { .page { padding: 14px; } .cardGrid, .formGrid { grid-template-columns: 1fr; } }
+@media (max-width: 800px) { .page { padding: 14px; } .cardGrid, .formGrid, .factionOverview { grid-template-columns: 1fr; } .factionBrief { grid-template-columns:1fr; } }

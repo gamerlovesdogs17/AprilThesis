@@ -21,7 +21,7 @@ npm run validate:all
 npm run test:e2e
 ```
 
-`validate:all` runs workspace type checking, 19 Vitest tests, asset validation, and the production build. The Playwright suite contains 11 campaign scenarios.
+`validate:all` runs workspace type checking, 27 Vitest tests, asset validation, and the production build. The Playwright suite contains 27 passing campaign, cinematic, map, audio, asset, save-migration, screenshot, and accessibility scenarios.
 
 ## Political systems
 
@@ -32,8 +32,11 @@ npm run test:e2e
 - Direct campaigns for Mandatory Union Consultation, Factory Committee Co-Management, and a Protected Internal Party Press. Passed laws apply immediate and monthly effects.
 - Autonomous character and institution agendas, relationships, pressure, institutional attitude/autonomy, and visible communications.
 - Fifteen regional operations with named-organizer assignment, phase/resource/skill/intelligence gates, cooldowns, transparent success/detection chances, arrest and release consequences, and persistent regional effects.
-- Sixteen map modes, including influence-field rendering and uncertainty treatment.
+- A projected geographic strategic map with 28 stable gameplay regions, Natural Earth context, historical city labels, major rivers and railways, independent layers, mouse/keyboard zoom, pan, reset, and fit-region controls.
+- Sixteen map modes, including clipped influence-surface rendering, uncertainty treatment, administrative and infrastructure views.
 - Ten newspapers and bulletins with official/factional contradictions, suppression markers, filters, and article links.
+- A six-scene skippable/replayable cinematic, persistent Workers' Opposition identity, historical campaign charts, institutional and vote diagrams, and designed character portrait fallbacks.
+- Fourteen deterministic local WAV assets controlled through master, music, ambience, and interface channels with mute, preload, duplicate-loop prevention, fades, and cleanup.
 
 ## Structure
 
@@ -47,7 +50,7 @@ npm run test:e2e
 
 ## Saves
 
-Saves use a versioned `SaveEnvelope`, checksum validation, deterministic state, and IndexedDB. Version 2 migrations add the political systems to older campaigns. The UI supports manual save, load/continue, duplicate, export, import, delete, rotating autosaves, and quarantine of invalid imports. Ironman uses one protected campaign slot and disables duplication/deletion in the manager.
+Saves use a versioned `SaveEnvelope`, checksum validation, deterministic state, and IndexedDB. Version 3 adds compact monthly visual-history snapshots and migrates earlier political-system saves without changing campaign IDs or seeded outcomes. The UI supports manual save, load/continue, duplicate, export, import, delete, rotating autosaves, and quarantine of invalid imports. Ironman uses one protected campaign slot and disables duplication/deletion in the manager.
 
 ## Historical and content workflow
 
@@ -55,6 +58,6 @@ Content is TypeScript data validated by shared types. Historical events include 
 
 ## Assets and deployment
 
-The build uses original CSS, SVG, and procedural audio only. Add external media under `apps/web/public`, record it in `public/assets/assets-manifest.json`, update `ATTRIBUTION.md`, and run `npm run validate:assets`.
+The build uses original CSS/SVG, one clearly labeled original generated congress reconstruction, fourteen repository-generated WAV files, and public-domain Natural Earth geographic context. All assets are local and recorded in `apps/web/public/assets/assets-manifest.json`. See `ATTRIBUTION.md`, `THIRD_PARTY_LICENSES.md`, and `docs/ASSET_SOURCES.md` before adding media.
 
 `npm run build` writes the static site to `apps/web/dist`. Any static host can serve it; no backend is configured or required.

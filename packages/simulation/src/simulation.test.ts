@@ -4,7 +4,8 @@ import type { CampaignSettings } from '@april-thesis/shared-types';
 import { SeededRng } from './rng';
 import { createCampaign } from './campaign';
 import { advanceMonth, applyEffects, evaluateEndings, resolveOperations } from './turns';
-import { createSaveEnvelope, validateSaveEnvelope } from './save';
+import { createSaveEnvelope, migrateSave, validateSaveEnvelope } from './save';
+import { appendCampaignSnapshot, deriveNationalChartSeries } from './history';
 import { beginPolicyCampaign, campaignForProposal, isEventChoiceEligible, lobbyDelegate, performFactionAction, resolveVote, runPoliticalMonth } from './politics';
 
 const settings: CampaignSettings = {
@@ -30,6 +31,29 @@ describe('deterministic simulation', () => {
     expect(Object.keys(state.regions)).toHaveLength(28);
     expect(state.currentDate).toBe('1921-03');
     expect(state.institutions.cheka).toBeDefined();
+    expect(state.historySnapshots).toHaveLength(1);
+    expect(state.historySnapshots[0].date).toBe('1921-03');
+  });
+
+  it('captures real monthly history for visual dashboards without altering determinism', () => {
+    const state = campaign();
+    const april = advanceMonth(state);
+    april.nationalStats.industrialProduction = 31;
+    const withApril = appendCampaignSnapshot(april);
+    const replacement = appendCampaignSnapshot({ ...withApril, nationalStats: { ...withApril.nationalStats, industrialProduction: 34 } });
+    expect(replacement.historySnapshots.map(snapshot => snapshot.date)).toEqual(['1921-03', '1921-04']);
+    expect(deriveNationalChartSeries(replacement.historySnapshots).at(-1)?.industrialProduction).toBe(34);
+  });
+
+  it('migrates earlier saves with a compatible history snapshot', () => {
+    const envelope = createSaveEnvelope(campaign(), 'Legacy');
+    envelope.saveVersion = 2;
+    delete (envelope.campaign as Partial<typeof envelope.campaign>).historySnapshots;
+    delete envelope.checksum;
+    const migrated = migrateSave(envelope);
+    expect(migrated.saveVersion).toBe(3);
+    expect(migrated.campaign.historySnapshots).toHaveLength(1);
+    expect(migrated.campaign.currentDate).toBe('1921-03');
   });
 
   it('applies nested regional influence and relationship effects', () => {

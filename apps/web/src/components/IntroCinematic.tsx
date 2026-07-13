@@ -1,255 +1,128 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties } from 'react';
+import { cities, geographicContext, getCityPoint, getLinePath, railways } from '@april-thesis/content';
+import { audioManager, type AudioCue } from '../audio/audioManager';
 import { useGameStore } from '../store/gameStore';
 import styles from './IntroCinematic.module.css';
 
 const SCENES = [
-  { id: 'darkness', duration: 12000 },
-  { id: 'map', duration: 15000 },
-  { id: 'newspapers', duration: 15000 },
-  { id: 'congress', duration: 10000 },
-  { id: 'meeting', duration: 12000 },
-  { id: 'title', duration: 0 },
+  { id:'old-order', duration:10000, caption:'[Winter wind. Telegraph keys begin.]' },
+  { id:'civil-war', duration:14000, caption:'[Distant railway. Military traffic recedes.]' },
+  { id:'newspapers', duration:12000, caption:'[Printing press, typewriter, and paper.]' },
+  { id:'congress', duration:10000, caption:'[Congress murmur. A heavy stamp strikes.]' },
+  { id:'opposition', duration:14000, caption:'[Quiet meeting room. A telegram arrives.]' },
+  { id:'title', duration:0, caption:'[The railway fades into the title theme.]' },
+] as const;
+
+const CIVIL_LINES = ['Revolution became civil war.','By 1921, the armies were exhausted.','The factories were silent.','The villages resisted.','The revolution had survived.','Its promises had not.'];
+
+const PAPERS = [
+  { className:'pravda', masthead:'PRAVDA', meta:'MOSCOW · 16 MARCH 1921', headline:'PARTY UNITY RESOLUTION ADOPTED', deck:'Congress closes ranks as war gives way to reconstruction.' },
+  { className:'foreign', masthead:'THE SOCIALIST CALL', meta:'RIGA EDITION · DISPATCH', headline:'REVOLT AT KRONSTADT', deck:'Foreign socialists debate the meaning of the sailors’ rising.' },
+  { className:'circular', masthead:'METALWORKERS’ CIRCULAR', meta:'PETROGRAD · HAND TO HAND', headline:'WORKERS’ OPPOSITION DENOUNCED', deck:'Union militants ask what organized labor may still decide.' },
+  { className:'memorandum', masthead:'SPECIAL DEPARTMENT', meta:'CLASSIFIED · FILE 4/1921', headline:'FACTIONS ORDERED TO DISSOLVE', deck:'Security memorandum: observe printing, travel, and private meetings.' },
 ];
 
-const LINES_DARKNESS = [
-  '1917. The old order fell.',
-  '1918–1920. Revolution became civil war.',
+const LEADERS = [
+  { initials:'AK', name:'Alexandra Kollontai', role:'Agitator, writer, international voice' },
+  { initials:'AS', name:'Alexander Shliapnikov', role:'Metalworker and union organizer' },
+  { initials:'SM', name:'Sergei Medvedev', role:'Industrial organizer and faction leader' },
+  { initials:'YOU', name:'The player-organizer', role:'Background chosen in the campaign dossier' },
 ];
 
-const LINES_MAP = [
-  'By 1921, the armies were exhausted.',
-  'The factories were silent.',
-  'The villages resisted.',
-  'The revolution had survived.',
-  'Its promises had not.',
-];
+function initialScene() {
+  if (typeof window === 'undefined') return 0;
+  const requested = new URLSearchParams(window.location.search).get('introScene');
+  const index = SCENES.findIndex(scene => scene.id === requested);
+  return index >= 0 ? index : 0;
+}
 
-const HEADLINES = [
-  'REVOLT AT KRONSTADT',
-  'TENTH PARTY CONGRESS CONVENES',
-  'GRAIN REQUISITIONS TO END',
-  'NEW ECONOMIC POLICY PROPOSED',
-  'FAMINE SPREADS ACROSS THE VOLGA',
-  'PARTY UNITY RESOLUTION ADOPTED',
-  'FACTIONS ORDERED TO DISSOLVE',
-  'WORKERS\' OPPOSITION DENOUNCED',
-];
+function sceneLoops(scene: string): AudioCue[] {
+  if (scene === 'old-order') return ['wind'];
+  if (scene === 'civil-war') return ['wind','railway'];
+  if (scene === 'newspapers') return ['printingPress'];
+  if (scene === 'congress') return ['meeting'];
+  if (scene === 'opposition') return ['meeting'];
+  return [];
+}
+
+function EmpireMap({ conflict = false }: { conflict?: boolean }) {
+  const russia = geographicContext.find(feature => feature.name === 'Russia');
+  const frontCities = cities.filter(city => ['petrograd-city','moscow-city','kiev-city','omsk-city','vladivostok-city','tsaritsyn-city'].includes(city.id));
+  return <svg viewBox="0 0 1000 560" className={styles.empireMap} aria-label={conflict ? 'Geographic civil-war map with railways and major cities' : 'Distressed geographic outline of the former Russian Empire'} role="img">
+    <defs><pattern id="print-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line y2="10" stroke="currentColor" strokeOpacity=".16" strokeWidth="3"/></pattern></defs>
+    {russia && <path d={russia.path} className={styles.empireLand}/>}<path d={russia?.path ?? ''} fill="url(#print-hatch)" className={styles.printTexture}/>
+    {conflict && <>
+      {railways.slice(0,4).map(line => <path key={line.id} d={getLinePath(line)} className={styles.cinematicRail}/>) }
+      <path d="M83 205 Q185 155 260 230 T430 190" className={`${styles.front} ${styles.frontWest}`}/>
+      <path d="M355 255 Q480 215 610 285 T790 250" className={`${styles.front} ${styles.frontEast}`}/>
+      <path d="M165 380 Q255 325 340 390" className={`${styles.front} ${styles.frontSouth}`}/>
+      {frontCities.map(city => { const [x,y]=getCityPoint(city); return <g key={city.id}><circle cx={x} cy={y} r={city.populationCategory === 'metropolis' ? 6 : 4} className={styles.cinematicCity}/><text x={x+9} y={y-6}>{city.name}</text></g>; })}
+      <g className={styles.supplyWarnings}><circle cx="185" cy="300" r="28"/><circle cx="270" cy="280" r="21"/><circle cx="340" cy="318" r="18"/><text x="202" y="345">SUPPLY FAILURES · FAMINE WARNINGS</text></g>
+    </>}
+    {!conflict && <>
+      <path d="M80 118H310M155 82V255M240 108V310M310 145H500" className={styles.telegraphLines}/>
+      <g className={styles.brokenSeal}><circle cx="290" cy="255" r="72"/><path d="M250 212L330 298M335 210L250 302"/><text x="290" y="262">1917</text></g>
+    </>}
+  </svg>;
+}
 
 export function IntroCinematic() {
-  const [sceneIndex, setSceneIndex] = useState(0);
-  const [lineIndex, setLineIndex] = useState(0);
-  const [headlineIndex, setHeadlineIndex] = useState(0);
+  const [sceneIndex, setSceneIndex] = useState(initialScene);
+  const [audioActive, setAudioActive] = useState(false);
   const [stampVisible, setStampVisible] = useState(false);
-  const [skipped, setSkipped] = useState(false);
-  const setScreen = useGameStore(s => s.setScreen);
-  const updatePreferences = useGameStore(s => s.updatePreferences);
-  const reducedMotion = useGameStore(s => s.preferences.reducedMotion);
-  const setAudioEnabled = useGameStore(s => s.setAudioEnabled);
-  const audioCtx = useRef<AudioContext | null>(null);
+  const setScreen = useGameStore(state => state.setScreen);
+  const updatePreferences = useGameStore(state => state.updatePreferences);
+  const preferences = useGameStore(state => state.preferences);
+  const setAudioEnabled = useGameStore(state => state.setAudioEnabled);
+  const reducedMotion = preferences.reducedMotion;
+  const scene = SCENES[sceneIndex] ?? SCENES[0];
 
-  const skip = useCallback(() => {
-    setSkipped(true);
-    updatePreferences({ introViewed: true });
+  const finish = useCallback(() => {
+    audioManager.cleanup();
+    updatePreferences({ introViewed:true });
     setScreen('title');
   }, [setScreen, updatePreferences]);
 
   const enableAudio = useCallback(() => {
-    if (!audioCtx.current) {
-      audioCtx.current = new AudioContext();
-      setAudioEnabled(true);
-      playAmbience(audioCtx.current);
-    }
-  }, [setAudioEnabled]);
+    audioManager.activate(preferences); setAudioEnabled(true); setAudioActive(true);
+    audioManager.setScene(sceneLoops(scene.id));
+    if (scene.id === 'old-order') audioManager.play('telegraph');
+  }, [preferences, scene.id, setAudioEnabled]);
 
   useEffect(() => {
-    if (skipped || reducedMotion) return;
-    const scene = SCENES[sceneIndex];
-    if (!scene || scene.id === 'title') {
-      updatePreferences({ introViewed: true });
-      return;
-    }
-    const timer = setTimeout(() => {
-      setSceneIndex(i => Math.min(i + 1, SCENES.length - 1));
-      setLineIndex(0);
-    }, scene.duration);
-    return () => clearTimeout(timer);
-  }, [sceneIndex, skipped, reducedMotion, updatePreferences]);
+    if (reducedMotion || scene.duration === 0) return;
+    const timer = window.setTimeout(() => setSceneIndex(index => Math.min(index + 1, SCENES.length - 1)), scene.duration);
+    return () => window.clearTimeout(timer);
+  }, [reducedMotion, scene.duration]);
 
   useEffect(() => {
-    if (sceneIndex === 0 && lineIndex < LINES_DARKNESS.length) {
-      const t = setTimeout(() => setLineIndex(i => i + 1), 3000);
-      return () => clearTimeout(t);
-    }
-    if (sceneIndex === 1 && lineIndex < LINES_MAP.length) {
-      const t = setTimeout(() => setLineIndex(i => i + 1), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [sceneIndex, lineIndex]);
+    setStampVisible(false);
+    if (audioActive) { audioManager.configure(preferences); audioManager.setScene(sceneLoops(scene.id)); }
+    if (scene.id === 'newspapers' && audioActive) { audioManager.play('paper'); audioManager.play('typewriter'); }
+    const stampTimer = scene.id === 'congress' ? window.setTimeout(() => { setStampVisible(true); if (audioActive) audioManager.play('stamp'); }, 1800) : null;
+    const telegramTimer = scene.id === 'opposition' && audioActive ? window.setTimeout(() => audioManager.play('telegram'), 1300) : null;
+    if (scene.id === 'title' && audioActive) audioManager.play('titleCue');
+    return () => { if (stampTimer) window.clearTimeout(stampTimer); if (telegramTimer) window.clearTimeout(telegramTimer); };
+  }, [audioActive, preferences, scene.id]);
 
-  useEffect(() => {
-    if (sceneIndex === 2 && headlineIndex < HEADLINES.length) {
-      const t = setTimeout(() => setHeadlineIndex(i => i + 1), 1800);
-      return () => clearTimeout(t);
-    }
-  }, [sceneIndex, headlineIndex]);
+  useEffect(() => () => audioManager.cleanup(), []);
 
-  useEffect(() => {
-    if (sceneIndex === 3) {
-      const t = setTimeout(() => setStampVisible(true), 2000);
-      return () => clearTimeout(t);
-    }
-  }, [sceneIndex]);
+  if (reducedMotion) return <main className={styles.staticIntro}>
+    <section className={styles.staticContent}><FactionMark/><p className={styles.eyebrow}>March 1921 · reduced-motion introduction</p><h1>YOU LEAD THE WORKERS’ OPPOSITION</h1><p>A Bolshevik current rooted in trade unions and industrial labor. Its leaders demand a greater role for organized workers in governing the economy. The Party has ordered it to dissolve.</p><div className={styles.staticLeaders}>{LEADERS.map(leader => <LeaderCard key={leader.initials} {...leader}/>)}</div><blockquote>“The resolution has passed. What remains of the organization must decide tonight.”</blockquote><button className="primary" onClick={finish}>Continue to title screen</button></section>
+  </main>;
 
-  if (reducedMotion) {
-    return (
-      <div className={styles.staticIntro}>
-        <div className={styles.staticContent}>
-          <h1>APRIL THESIS</h1>
-          <p className={styles.subtitle}>The Revolution After Victory</p>
-          <blockquote>
-            &ldquo;The revolution was won once. Now it must decide what it has become.&rdquo;
-          </blockquote>
-          <p className={styles.context}>
-            March 1921. The Tenth Party Congress has banned organized factions.
-            The Workers&apos; Opposition must decide what remains.
-          </p>
-          <button className="primary" onClick={skip}>Continue to Title Screen</button>
-        </div>
-      </div>
-    );
-  }
-
-  const currentScene = SCENES[sceneIndex]?.id ?? 'title';
-
-  return (
-    <div className={styles.intro} role="region" aria-label="Introduction cinematic">
-      <button className={styles.skipBtn} onClick={skip} aria-label="Skip introduction">
-        Skip
-      </button>
-
-      {!audioCtx.current && (
-        <button className={styles.audioBtn} onClick={enableAudio} aria-label="Enable audio">
-          Enable Audio
-        </button>
-      )}
-
-      {currentScene === 'darkness' && (
-        <div className={styles.sceneDarkness}>
-          <div className={styles.redLine} />
-          {LINES_DARKNESS.slice(0, lineIndex).map((line, i) => (
-            <p key={i} className={styles.lineText}>{line}</p>
-          ))}
-          <span className="sr-only" aria-live="polite">
-            {LINES_DARKNESS[lineIndex - 1] ?? ''}
-          </span>
-        </div>
-      )}
-
-      {currentScene === 'map' && (
-        <div className={styles.sceneMap}>
-          <svg viewBox="0 0 640 400" className={styles.mapSvg} aria-hidden="true">
-            <rect width="640" height="400" fill="#1a1410" />
-            {Array.from({ length: 28 }).map((_, i) => (
-              <path
-                key={i}
-                d={`M${60 + (i % 7) * 80},${80 + Math.floor(i / 7) * 70} L${120 + (i % 7) * 80},${70 + Math.floor(i / 7) * 70} L${130 + (i % 7) * 80},${120 + Math.floor(i / 7) * 70} L${70 + (i % 7) * 80},${130 + Math.floor(i / 7) * 70} Z`}
-                fill="none"
-                stroke="#4a3f30"
-                strokeWidth="1"
-                opacity={0.3 + (i / 28) * 0.5}
-                className={styles.mapRegion}
-              />
-            ))}
-            <line x1="0" y1="200" x2="640" y2="200" stroke="#8b1a1a" strokeWidth="2" opacity="0.5" className={styles.frontLine} />
-          </svg>
-          <div className={styles.mapText}>
-            {LINES_MAP.slice(0, lineIndex).map((line, i) => (
-              <p key={i} className={styles.lineText}>{line}</p>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {currentScene === 'newspapers' && (
-        <div className={styles.sceneNewspapers}>
-          {HEADLINES.slice(0, headlineIndex).map((h, i) => (
-            <div key={i} className={styles.newspaper} style={{ transform: `rotate(${(i % 3 - 1) * 5}deg) translateY(${i * 10}px)` }}>
-              <div className={styles.newspaperHeader}>SOVIET PRESS — MARCH 1921</div>
-              <div className={styles.newspaperHeadline}>{h}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {currentScene === 'congress' && (
-        <div className={styles.sceneCongress}>
-          <div className={styles.congressHall}>
-            <div className={styles.silhouettes}>
-              {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className={styles.silhouette} style={{ left: `${10 + i * 7}%` }} />
-              ))}
-            </div>
-            <div className={`${styles.stamp} ${stampVisible ? styles.stampVisible : ''}`}>
-              ORGANIZED FACTIONS ARE HEREBY DISSOLVED
-            </div>
-          </div>
-        </div>
-      )}
-
-      {currentScene === 'meeting' && (
-        <div className={styles.sceneMeeting}>
-          <div className={styles.meetingTable}>
-            <div className={styles.dossiers}>
-              {['Workers\' Opposition', 'Trade Unions', 'Party Unity', 'Food Supply', 'Surveillance', 'Petrograd', 'Moscow', 'Donbas'].map(label => (
-                <span key={label} className={styles.dossier}>{label}</span>
-              ))}
-            </div>
-            <div className={styles.telegram}>
-              &ldquo;The resolution has passed. What remains of the organization must decide tonight.&rdquo;
-            </div>
-          </div>
-        </div>
-      )}
-
-      {currentScene === 'title' && (
-        <div className={styles.sceneTitle}>
-          <h1 className={styles.gameTitle}>APRIL THESIS</h1>
-          <p className={styles.subtitle}>The Revolution After Victory</p>
-          <blockquote className={styles.quote}>
-            &ldquo;The revolution was won once. Now it must decide what it has become.&rdquo;
-          </blockquote>
-          <button className="primary" onClick={() => { updatePreferences({ introViewed: true }); setScreen('title'); }}>
-            Enter
-          </button>
-        </div>
-      )}
-
-      <div className={styles.captions} aria-live="polite">
-        {currentScene === 'darkness' && '[Wind, telegraph clicks, distant railway]'}
-        {currentScene === 'congress' && stampVisible && '[Stamp strikes paper]'}
-        {currentScene === 'meeting' && '[Telegram arrives]'}
-      </div>
-    </div>
-  );
+  return <main className={styles.intro} role="region" aria-label="Introduction cinematic" data-scene={scene.id}>
+    <div className={styles.filmGrain}/><button className={styles.skipBtn} onClick={finish}>Skip introduction</button>{!audioActive && <button className={styles.audioBtn} onClick={enableAudio}>Enable cinematic audio</button>}
+    {scene.id === 'old-order' && <section className={`${styles.scene} ${styles.oldOrder}`}><EmpireMap/><div className={styles.sceneCopy}><p className={styles.eyebrow}>Petrograd · November 1917</p><h1>1917. The old order fell.</h1><p>Telegraph wires carried decrees faster than the state could enforce them.</p></div></section>}
+    {scene.id === 'civil-war' && <section className={`${styles.scene} ${styles.civilWar}`}><EmpireMap conflict/><div className={styles.civilCopy}>{CIVIL_LINES.map((line,index)=><p key={line} style={{'--line-index':index} as CSSProperties}>{line}</p>)}</div></section>}
+    {scene.id === 'newspapers' && <section className={`${styles.scene} ${styles.montage}`}><div className={styles.paperDesk}>{PAPERS.map((paper,index)=><article key={paper.masthead} className={`${styles.paper} ${styles[paper.className]}`} style={{'--paper-index':index} as CSSProperties}><header>{paper.masthead}</header><small>{paper.meta}</small><div className={styles.paperColumns}><div className={styles.halftone}/><div><h2>{paper.headline}</h2><p>{paper.deck}</p><span>Continued on reverse →</span></div></div></article>)}</div></section>}
+    {scene.id === 'congress' && <section className={`${styles.scene} ${styles.congress}`}><img src="/assets/illustrations/congress-hall-reconstruction.png" alt="Original artistic reconstruction of a crowded 1921 political congress hall, with a central dais and delegates raising papers"/><div className={styles.congressShade}/><div className={`${styles.resolution} ${stampVisible ? styles.resolutionStamped : ''}`}><small>RESOLUTION ON PARTY UNITY · TENTH CONGRESS</small><strong>ORGANIZED FACTIONS<br/>ARE HEREBY DISSOLVED</strong><span>Adopted · Moscow · March 1921</span></div><p className={styles.reconstructionLabel}>Original artistic reconstruction</p></section>}
+    {scene.id === 'opposition' && <section className={`${styles.scene} ${styles.opposition}`}><div className={styles.meetingLight}/><div className={styles.identity}><FactionMark/><p className={styles.eyebrow}>Private meeting · Moscow</p><h1>YOU LEAD THE<br/>WORKERS’ OPPOSITION</h1><p>A Bolshevik current rooted in trade unions and industrial labor.</p><p>Its leaders demand a greater role for organized workers in governing the economy.</p><p className={styles.ban}>The Party has now ordered it to dissolve.</p></div><div className={styles.leaderDossiers}>{LEADERS.map(leader => <LeaderCard key={leader.initials} {...leader}/>)}</div><div className={styles.tableEvidence}><span>UNION LEDGER</span><span>CONCEALED PLATE</span><span>SECURITY FILE</span><span>RAIL MAP</span></div><blockquote className={styles.telegram}>“The resolution has passed. What remains of the organization must decide tonight.”</blockquote></section>}
+    {scene.id === 'title' && <section className={`${styles.scene} ${styles.titleScene}`}><EmpireMap conflict/><div className={styles.titleVeil}/><FactionMark/><h1>APRIL THESIS</h1><h2>The Revolution After Victory</h2><blockquote>“The revolution was won once. Now it must decide what it has become.”</blockquote><button className="primary" onClick={finish}>Enter the campaign</button></section>}
+    <div className={styles.progress} aria-hidden="true">{SCENES.map((item,index)=><i key={item.id} className={index<=sceneIndex ? styles.progressActive : ''}/>)}</div><div className={styles.captions} aria-live="polite">{audioActive ? scene.caption : '[Audio is off. Enable audio to hear this scene.]'}</div>
+  </main>;
 }
 
-function playAmbience(ctx: AudioContext) {
-  const bufferSize = ctx.sampleRate * 2;
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = (Math.random() * 2 - 1) * 0.02;
-  }
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 400;
-  const gain = ctx.createGain();
-  gain.gain.value = 0.15;
-  source.connect(filter);
-  filter.connect(gain);
-  gain.connect(ctx.destination);
-  source.start();
-}
+function FactionMark() { return <svg viewBox="0 0 72 72" className={styles.factionMark} aria-label="Original Workers’ Opposition game symbol" role="img"><circle cx="36" cy="36" r="30"/><path d="M36 9V18M36 54V63M9 36H18M54 36H63M17 17L23 23M49 49L55 55M55 17L49 23M23 49L17 55"/><circle cx="36" cy="36" r="18"/><path d="M27 46V29L32 25V37L37 34V42L43 38V46Z"/></svg>; }
+
+function LeaderCard({ initials, name, role }: { initials:string; name:string; role:string }) { return <article className={styles.leaderCard}><div className={styles.portraitFallback}><span>{initials}</span><svg viewBox="0 0 80 100" aria-hidden="true"><circle cx="40" cy="30" r="18"/><path d="M14 96Q16 55 40 54Q64 55 66 96Z"/></svg></div><div><strong>{name}</strong><span>{role}</span><small>Designed dossier silhouette · no historical photograph claimed</small></div></article>; }

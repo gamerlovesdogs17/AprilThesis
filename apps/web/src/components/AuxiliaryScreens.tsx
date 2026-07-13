@@ -3,6 +3,7 @@ import { getEndingById } from '@april-thesis/content';
 import { deleteSaveSlot, duplicateSaveSlot, exportSaveToFile, importSaveFromFile, loadFromSlot, quarantineImport, saveToSlot } from '@april-thesis/simulation';
 import { formatGameDate } from '@april-thesis/shared-types';
 import { useGameStore } from '../store/gameStore';
+import { audioManager } from '../audio/audioManager';
 import styles from './Shell.module.css';
 
 function BackButton() {
@@ -31,9 +32,17 @@ export function SettingsScreen() {
     <div className={styles.section}>
       <label className={styles.statLine}>Reduced motion <input type="checkbox" checked={preferences.reducedMotion} onChange={e => updatePreferences({ reducedMotion: e.target.checked })}/></label>
       <label className={styles.statLine}>Colorblind patterns <input type="checkbox" checked={preferences.colorblindMode} onChange={e => updatePreferences({ colorblindMode: e.target.checked })}/></label>
-      <label className={styles.statLine}>Mute audio <input type="checkbox" checked={preferences.muted} onChange={e => updatePreferences({ muted: e.target.checked })}/></label>
+      <label className={styles.statLine}>Mute audio <input type="checkbox" checked={preferences.muted} onChange={e => { const updated={...preferences,muted:e.target.checked}; updatePreferences({ muted:e.target.checked }); audioManager.configure(updated); }}/></label>
       <label className={styles.statLine}>Text scale <input type="range" min="0.85" max="1.35" step="0.05" value={preferences.textScale} onChange={e => { const textScale = Number(e.target.value); document.documentElement.style.fontSize = `${14 * textScale}px`; updatePreferences({ textScale }); }}/></label>
       <label className={styles.statLine}>Master volume <input type="range" min="0" max="1" step="0.05" value={preferences.masterVolume} onChange={e => updatePreferences({ masterVolume: Number(e.target.value) })}/></label>
+      <label className={styles.statLine}>Music volume <input type="range" min="0" max="1" step="0.05" value={preferences.musicVolume} onChange={e => updatePreferences({ musicVolume:Number(e.target.value) })}/></label>
+      <label className={styles.statLine}>Ambience volume <input type="range" min="0" max="1" step="0.05" value={preferences.ambienceVolume} onChange={e => updatePreferences({ ambienceVolume:Number(e.target.value) })}/></label>
+      <label className={styles.statLine}>Interface volume <input type="range" min="0" max="1" step="0.05" value={preferences.interfaceVolume} onChange={e => updatePreferences({ interfaceVolume:Number(e.target.value) })}/></label>
+      <label className={styles.statLine}>Enhanced influence surface <input type="checkbox" checked={preferences.enhancedInfluence} onChange={e => updatePreferences({enhancedInfluence:e.target.checked})}/></label>
+      <label className={styles.statLine}>Map animation <input type="checkbox" checked={preferences.mapAnimation} onChange={e => updatePreferences({mapAnimation:e.target.checked})}/></label>
+      <label className={styles.statLine}>Ambient visual effects <input type="checkbox" checked={preferences.ambientVisualEffects} onChange={e => updatePreferences({ambientVisualEffects:e.target.checked})}/></label>
+      <label className={styles.statLine}>Audio preload <select value={preferences.audioPreload} onChange={e => updatePreferences({audioPreload:e.target.value as 'minimal'|'full'})}><option value="minimal">Minimal</option><option value="full">Full cinematic set</option></select></label>
+      <button onClick={() => { audioManager.activate(preferences); audioManager.play('stamp',{restart:true}); }}>Test stamp sound</button>
       <p>All meaningful audio has captions; the campaign is fully playable while muted.</p>
     </div>
     <div className={styles.actionRow}><BackButton /></div>
@@ -43,7 +52,7 @@ export function SettingsScreen() {
 export function CreditsScreen() {
   return <main className={styles.page}><article className={styles.paperPanel}>
     <p className={styles.eyebrow}>Credits and method</p><h1>April Thesis</h1>
-    <section className={styles.section}><h2>Design</h2><p>An original browser strategy game. All map geometry, interface graphics, patterns, and procedural ambience are project-created. No third-party image or audio assets are currently shipped.</p></section>
+    <section className={styles.section}><h2>Design and assets</h2><p>An original browser strategy game. Strategic boundaries, interface graphics, patterns, the Workers’ Opposition symbol, and generated PCM audio are project-created. Geographic context is derived from public-domain Natural Earth data. The congress scene is an original artistic reconstruction, not a historical photograph.</p></section>
     <section className={styles.section}><h2>Historical framing</h2><p>The player is fictional. Historical characters, institutions, and crises are date-scoped. Counterfactual outcomes are labeled internally and the archive exposes each scene’s classification.</p></section>
     <section className={styles.section}><h2>Content note</h2><p>The game depicts famine, political repression, warfare, incarceration, and state violence through text and abstract graphics.</p></section>
     <div className={styles.actionRow}><BackButton /></div>

@@ -1,6 +1,7 @@
 import type { SaveEnvelope, CampaignState } from '@april-thesis/shared-types';
 import { SAVE_VERSION, GAME_VERSION, CONTENT_VERSION } from '@april-thesis/shared-types';
 import { initializePoliticalSystems } from './politics';
+import { captureCampaignSnapshot } from './history';
 
 export function computeChecksum(data: string): string {
   let hash = 0;
@@ -64,6 +65,7 @@ export function migrateSave(envelope: SaveEnvelope): SaveEnvelope {
   campaign.operationHistory ??= [];
   campaign.institutionHistory ??= [];
   campaign.characterCommunications ??= [];
+  campaign.historySnapshots ??= [captureCampaignSnapshot(campaign)];
   for (const character of Object.values(campaign.characters)) {
     character.availability ??= character.isArrested ? 'arrested' : character.isExiled ? 'exiled' : 'active';
     character.currentAgenda ??= 'Party business'; character.lastAction ??= 'No autonomous action recorded.';

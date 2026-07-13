@@ -1,22 +1,22 @@
 # Progress
 
-## Phase Two complete
+## Phase Three complete
 
-- Preserved and extended the npm-workspaces architecture, seeded simulation, content schemas, March opening, and local-first campaign.
-- Enforced setup choices for background, difficulty, historical constraint, seed, tutorial, and ironman.
-- Expanded the strategic map to 16 working modes with formal government labels, full legends, uncertainty, and a toggleable influence field.
-- Added eight named organizers, eight internal blocs, limited faction actions, assignments, protection, printing, meetings, budget allocation, fatigue, exposure, arrests, releases, and monthly drift.
-- Replaced the June estimate with a 28-delegate named composite roll call, three lobbying methods, delegate histories, abstentions, threshold, tally, and deterministic resolution.
-- Added three direct policy proposals with campaign costs, opposition, immediate effects, and ongoing monthly law effects.
-- Made all eight institutions and 15 characters active through agendas, attitudes, relationships, pressure, communications, and autonomous monthly actions.
-- Added transparent operation eligibility, organizer-skill and intelligence inputs, success/detection chances, cooldown/history, and persistent results.
-- Expanded newspapers to ten publications with filters, suppression status, contradictory official/factional accounts, and entity links.
-- Upgraded saves to version 2 with migrations, manual/autosave/ironman behavior, continue-latest, duplicate, export/import, delete, checksum validation, and quarantine.
-- Authored 11 Playwright campaign scenarios and expanded the automated unit/integration suite to 19 tests.
+- Completed the pre-change audit and baseline screenshot set.
+- Rebuilt all six intro scenes and preserved skip, replay, caption, and reduced-motion behavior.
+- Added public-domain geographic context, coherent strategic polygons, adjacency, cities, rivers, railways, seas, zoom/pan/focus, layers, and influence contours.
+- Made Workers' Opposition identity explicit during setup and persistent in the campaign.
+- Added real campaign-history snapshots, national/faction charts, regional comparisons, institutional relationships, and vote seating.
+- Reworked character and newspaper presentation with clearly labeled designed fallbacks.
+- Added 14 local WAV assets, a centralized manager, real settings, gesture activation, cleanup, and honest captions.
+- Added and validated the canonical 16-entry asset manifest, attribution, license, provenance, map, audio, visual, and completion documentation.
+- Preserved every Phase Two content ID, deterministic political mechanic, and March–August 1921 boundary.
 
 ## Verification status
 
-- `npm run lint`: passing.
-- `npm run validate:all`: passing; all 19 Vitest tests, asset validation, type checking, and production build passed.
-- Full in-app browser playthrough: passing from setup through the September chapter outcome, including a named June vote and March-August event/turn flow.
-- Current Playwright suite execution still requires a successful local Chromium launch; the final environment's browser-launch approval service did not execute that command. The 11 scenarios remain available through `npm run test:e2e`.
+- `npm run validate:all`: passing.
+- 27 Vitest tests: passing.
+- 27 Playwright Chromium scenarios: passing.
+- Manual in-app browser and visual screenshot review: passing.
+- Local asset request and manifest validation: passing.
+- Current browser developer log: no application errors.

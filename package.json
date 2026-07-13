@@ -2,7 +2,7 @@
   "name": "april-thesis",
   "version": "0.1.0",
   "private": true,
-  "description": "APRIL THESIS — A map-centered political strategy game set in Soviet Russia, 1921–1924",
+  "description": "APRIL THESIS — A map-centered political strategy game covering March–August 1921",
   "workspaces": [
     "apps/*",
     "packages/*"

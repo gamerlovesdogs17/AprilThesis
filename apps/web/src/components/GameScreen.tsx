@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { MapMode, RegionState } from '@april-thesis/shared-types';
 import { formatGameDate } from '@april-thesis/shared-types';
 import {
@@ -14,6 +14,9 @@ import {
 import { getOperationEligibility, isEventChoiceEligible } from '@april-thesis/simulation';
 import { useGameStore } from '../store/gameStore';
 import { SaveArchivePanel } from './AuxiliaryScreens';
+import { GeographicMap } from './GeographicMap';
+import { InstitutionalBalanceChart, NationalDashboard, RegionalComparisonChart, VoteSeatingChart } from './PoliticalCharts';
+import { audioManager } from '../audio/audioManager';
 import styles from './GameScreen.module.css';
 
 const MAP_MODES: MapMode[] = [
@@ -42,7 +45,7 @@ function Metric({ label, value, danger = false }: { label: string; value: number
   </div>;
 }
 
-function CampaignMap() {
+export function LegacyCampaignMap() {
   const campaign = useGameStore(s => s.campaign)!;
   const content = useGameStore(s => s.content);
   const mapMode = useGameStore(s => s.mapMode);
@@ -125,12 +128,16 @@ function RegionPanel() {
   const regionDef = content.regions.find(r => r.id === selectedRegionId);
   const region = selectedRegionId ? campaign.regions[selectedRegionId] : null;
   if (!region || !regionDef) return <NationalBriefing />;
+  const geometry = content.mapGeometries.find(item => item.id === region.id);
+  const regionCities = content.cities.filter(city => city.regionId === region.id);
+  const comparisonIds = [region.id, ...(geometry?.neighborIds ?? []).slice(0, 2)];
   const operations = showAll ? content.operations : content.operations.slice(0, 6);
   const activeThisTurn = campaign.activeOperations.filter(op => op.startedTurn === campaign.turnNumber).length;
   return <div className={styles.contextPanel}>
     <p className={styles.kicker}>Regional dossier · confidence {region.intelligenceReliability}%</p>
     <h2>{regionDef.name}</h2><p>{regionDef.description}</p>
-    <div className={styles.regionFacts}><span><b>Formal government</b>{region.formalGovernment}</span><span><b>Cities</b>{regionDef.majorCities.join(', ')}</span><span><b>Population</b>{(regionDef.urbanPopulation + regionDef.ruralPopulation).toLocaleString()} thousand</span><span><b>Economy</b>{regionDef.economicProfile}</span><span><b>Composition</b>{regionDef.ethnicComposition}</span></div>
+    <div className={styles.regionFacts}><span><b>Formal government</b>{region.formalGovernment}</span><span><b>Mapped cities</b>{regionCities.map(city => city.name).join(', ') || regionDef.majorCities.join(', ')}</span><span><b>Population</b>{(regionDef.urbanPopulation + regionDef.ruralPopulation).toLocaleString()} thousand</span><span><b>Economy</b>{regionDef.economicProfile}</span><span><b>Composition</b>{regionDef.ethnicComposition}</span></div>
+    <RegionalComparisonChart campaign={campaign} regionIds={comparisonIds}/>
     <div className={styles.miniMeters}>
       <Metric label="Workers' Opposition" value={region.influence.workersOpposition}/><Metric label="Trade unions" value={region.tradeUnionOrganization}/><Metric label="Food supply" value={region.foodSupply}/><Metric label="Unrest" value={region.publicUnrest} danger/><Metric label="Cheka" value={region.chekaPresence} danger/>
     </div>
@@ -181,9 +188,9 @@ function BottomPanel() {
   return <section className={styles.bottomPanel}>
     <nav aria-label="Campaign sections">{BOTTOM_TABS.map(item => <button key={item} className={tab === item ? styles.activeTab : ''} onClick={() => setTab(item)}>{humanize(item)}</button>)}</nav>
     <div className={styles.tabContent}>
-      {tab === 'economy' && <DataCards items={[
+      {tab === 'economy' && <><NationalDashboard campaign={campaign}/><details className={styles.ledger}><summary>Detailed economic ledger</summary><DataCards items={[
         ['Industrial production', campaign.nationalStats.industrialProduction], ['Agricultural production', campaign.nationalStats.agriculturalProduction], ['Grain reserves', campaign.nationalStats.grainReserves], ['Urban food supply', campaign.nationalStats.urbanFoodSupply], ['Inflation', campaign.nationalStats.inflation], ['Black market', campaign.nationalStats.blackMarketActivity], ['Infrastructure', campaign.nationalStats.infrastructure], ['State revenue', campaign.nationalStats.stateRevenue],
-      ]}/>} 
+      ]}/></details></>} 
       {tab === 'faction' && <FactionPanel/>}
       {tab === 'party' && <VotePanel/>}
       {tab === 'institutions' && <InstitutionsPanel/>}
@@ -220,19 +227,19 @@ function VotePanel() {
   const vote = campaign.voteState;
   if (!vote) return <p>No ballot is scheduled.</p>;
   const total = vote.delegates.length;
-  return <div className={styles.voteWorkspace}><div className={styles.managementHeader}><div><p className={styles.kicker}>{humanize(vote.institutionId)} · scheduled {formatGameDate(vote.scheduledDate)}</p><h3>{vote.title}</h3><p>{vote.description}</p></div><div><strong>{vote.resolved && vote.tally ? `${vote.tally.for}–${vote.tally.against}` : `${vote.declaredSupporters} likely for · ${vote.declaredOpponents} likely against · ${vote.undecided} uncertain`}</strong><p>Threshold {vote.threshold}/{total} · confidence {vote.confidence}% · lobbying actions {vote.actionsRemaining}</p><button className="primary" disabled={vote.resolved || campaign.currentDate < vote.scheduledDate || campaign.phase !== 'party_politics'} onClick={resolve}>Call named roll</button></div></div>
+  return <div className={styles.voteWorkspace}><VoteSeatingChart campaign={campaign}/><div className={styles.managementHeader}><div><p className={styles.kicker}>{humanize(vote.institutionId)} · scheduled {formatGameDate(vote.scheduledDate)}</p><h3>{vote.title}</h3><p>{vote.description}</p></div><div><strong>{vote.resolved && vote.tally ? `${vote.tally.for}–${vote.tally.against}` : `${vote.declaredSupporters} likely for · ${vote.declaredOpponents} likely against · ${vote.undecided} uncertain`}</strong><p>Threshold {vote.threshold}/{total} · confidence {vote.confidence}% · lobbying actions {vote.actionsRemaining}</p><button className="primary" disabled={vote.resolved || campaign.currentDate < vote.scheduledDate || campaign.phase !== 'party_politics'} onClick={resolve}>Call named roll</button></div></div>
     <div className={styles.delegateGrid}>{vote.delegates.map(delegate => <article key={delegate.id} data-stance={delegate.resolvedVote ?? delegate.publicStance}><h3>{delegate.name}</h3><small>{delegate.delegation} · {humanize(delegate.bloc)}</small><p>{delegate.resolvedVote ? `Recorded: ${delegate.resolvedVote}` : `Estimate ${delegate.estimatedLean + delegate.lobbying > 0 ? '+' : ''}${delegate.estimatedLean + delegate.lobbying} · confidence ${delegate.intelligenceConfidence}%`}</p><p>Concerns: {delegate.concerns.join(', ')}</p>{delegate.promises.length > 0 && <em>Approaches: {delegate.promises.join(', ')}</em>}<div className={styles.delegateActions}><button disabled={vote.resolved || vote.actionsRemaining < 1 || campaign.phase !== 'party_politics'} onClick={() => lobby(delegate.id, 'private_meeting')}>Meet</button><button disabled={vote.resolved || vote.actionsRemaining < 1 || campaign.phase !== 'party_politics'} onClick={() => lobby(delegate.id, 'union_mandate')}>Mandate</button><button disabled={vote.resolved || vote.actionsRemaining < 1 || campaign.phase !== 'party_politics'} onClick={() => lobby(delegate.id, 'policy_concession')}>Concede</button></div></article>)}</div>
   </div>;
 }
 
 function InstitutionsPanel() {
   const campaign = useGameStore(s => s.campaign)!; const content = useGameStore(s => s.content); const approach = useGameStore(s => s.approachInstitution);
-  return <div className={styles.recordGrid}>{content.institutions.map(inst => { const state = campaign.institutions[inst.id]; return <article key={inst.id}><h3>{inst.name}</h3><p>{inst.description}</p><small>Leadership {humanize(inst.leadership)} · formal authority {inst.formalAuthority} · autonomy {Math.round(state.autonomy)}</small><p><strong>Agenda</strong>{state.activeAgenda}</p><p>Contacts {state.playerContacts} · attitude {Math.round(state.attitude)} · security penetration {state.securityPenetration}</p><p>Business: {state.pendingBusiness.join(' · ') || 'No pending business'}</p><button disabled={campaign.phase !== 'party_politics' || campaign.politicalActionsRemaining < 1} onClick={() => approach(inst.id)}>Approach · influence 3</button></article>; })}</div>;
+  return <><InstitutionalBalanceChart campaign={campaign}/><div className={styles.recordGrid}>{content.institutions.map(inst => { const state = campaign.institutions[inst.id]; return <article key={inst.id}><h3>{inst.name}</h3><p>{inst.description}</p><small>Leadership {humanize(inst.leadership)} · formal authority {inst.formalAuthority} · autonomy {Math.round(state.autonomy)}</small><p><strong>Agenda</strong>{state.activeAgenda}</p><p>Contacts {state.playerContacts} · attitude {Math.round(state.attitude)} · security penetration {state.securityPenetration}</p><p>Business: {state.pendingBusiness.join(' · ') || 'No pending business'}</p><button disabled={campaign.phase !== 'party_politics' || campaign.politicalActionsRemaining < 1} onClick={() => approach(inst.id)}>Approach · influence 3</button></article>; })}</div></>;
 }
 
 function CharactersPanel() {
   const campaign = useGameStore(s => s.campaign)!; const content = useGameStore(s => s.content); const selectCharacter = useGameStore(s => s.selectCharacter);
-  return <div className={styles.recordGrid}>{content.characters.map(char => { const state = campaign.characters[char.id]; return <button key={char.id} className={state.availability !== 'active' ? styles.unavailable : ''} onClick={() => selectCharacter(char.id)}><strong>{char.name}</strong><span>{char.title}</span><small>{humanize(state.availability)} · trust {state.trust} · respect {state.respect} · health {state.health}</small><span><b>Agenda:</b> {state.currentAgenda}</span><span>{state.lastAction}</span><small>Red lines: {char.redLines.join(', ') || 'not yet known'} · known secrets {state.knownSecrets.length}</small></button>; })}</div>;
+  return <div className={styles.characterGrid}>{content.characters.map(char => { const state = campaign.characters[char.id]; const initials=char.name.split(' ').map(part=>part[0]).slice(0,2).join(''); return <button key={char.id} className={state.availability !== 'active' ? styles.unavailable : ''} onClick={() => selectCharacter(char.id)}><div className={styles.characterPortrait} aria-hidden="true"><span>{initials}</span><svg viewBox="0 0 70 88"><circle cx="35" cy="26" r="16"/><path d="M9 86Q12 48 35 47Q58 48 61 86Z"/></svg></div><div><small className={styles.officeBadge}>{char.title}</small><strong>{char.name}</strong><span>{humanize(state.availability)} · trust {state.trust} · respect {state.respect} · health {state.health}</span><p><b>Current agenda</b>{state.currentAgenda}</p><p>{state.lastAction}</p><small>Red lines: {char.redLines.join(', ') || 'not yet known'} · known secrets {state.knownSecrets.length}</small></div></button>; })}</div>;
 }
 
 function LawsPanel() {
@@ -247,7 +254,7 @@ function Newspapers() {
   const [filter, setFilter] = useState('all');
   if (!campaign.newspapers.length) return <p>The presses are waiting. Major decisions generate clippings with distinct editorial framing.</p>;
   const articles = campaign.newspapers.filter(article => filter === 'all' || article.template === filter || (filter === 'suppressed' && article.suppressed));
-  return <><div className={styles.actionStrip}><button onClick={() => setFilter('all')}>All</button><button onClick={() => setFilter('official')}>Official</button><button onClick={() => setFilter('factional')}>Factional</button><button onClick={() => setFilter('security')}>Security</button><button onClick={() => setFilter('suppressed')}>Suppressed</button></div><div className={styles.newspaperGrid}>{articles.slice().reverse().map(article => { const publication = content.publications.find(pub => pub.id === article.publicationId); return <article key={article.id} className={article.suppressed ? styles.suppressed : ''}><small>{publication?.name ?? article.publicationId} · {article.date} · reliability {article.reliability}%</small><h3>{article.headline}</h3><p>{article.body}</p><em>{publication?.bias}{article.suppressed ? ' · circulation suppressed' : ''}{article.contradictsArticleId ? ' · contradicts another clipping' : ''}</em></article>; })}</div></>;
+  return <><div className={styles.actionStrip}><button onClick={() => setFilter('all')}>All</button><button onClick={() => setFilter('official')}>Official</button><button onClick={() => setFilter('factional')}>Factional</button><button onClick={() => setFilter('security')}>Security</button><button onClick={() => setFilter('suppressed')}>Suppressed</button></div><div className={styles.newspaperGrid}>{articles.slice().reverse().map(article => { const publication = content.publications.find(pub => pub.id === article.publicationId); return <article key={article.id} data-template={article.template} className={article.suppressed ? styles.suppressed : ''}><header><strong>{publication?.name ?? article.publicationId}</strong><span>{article.date} · reliability {article.reliability}%</span></header><h3>{article.headline}</h3><div className={styles.articleColumns}><p>{article.body}</p></div><footer>{publication?.bias}{article.suppressed ? ' · circulation suppressed' : ''}{article.contradictsArticleId ? ' · contradicts another clipping' : ''}</footer></article>; })}</div></>;
 }
 
 export function GameScreen() {
@@ -258,18 +265,21 @@ export function GameScreen() {
   const turnSummary = useGameStore(s => s.turnSummary);
   const dismissTurnSummary = useGameStore(s => s.dismissTurnSummary);
   const [notice, setNotice] = useState('');
+  useEffect(() => {
+    if (turnSummary) audioManager.play('paper');
+  }, [turnSummary]);
   if (!campaign) return <div className={styles.empty}><h1>No campaign loaded</h1><button onClick={() => setScreen('title')}>Return to title</button></div>;
-  const save = async () => { try { await saveGame('manual-1', `Manual · ${formatGameDate(campaign.currentDate)}`); setNotice('Campaign secured in local archive.'); } catch (error) { setNotice(error instanceof Error ? error.message : 'Save failed'); } };
+  const save = async () => { try { await saveGame('manual-1', `Manual · ${formatGameDate(campaign.currentDate)}`); audioManager.play('stamp'); setNotice('Campaign secured in local archive.'); } catch (error) { audioManager.play('warning'); setNotice(error instanceof Error ? error.message : 'Save failed'); } };
   return <main className={styles.game}>
     <header className={styles.topBar}>
       <div className={styles.dateBlock}><strong>{formatGameDate(campaign.currentDate)}</strong><span>Turn {campaign.turnNumber} · {PHASE_LABELS[campaign.phase]}</span></div>
-      <div className={styles.topMetrics}><Metric label="Stability" value={campaign.nationalStats.regimeStability}/><Metric label="Worker support" value={campaign.resources.workerSupport}/><Metric label="Influence" value={campaign.resources.politicalInfluence}/><Metric label="Capacity" value={campaign.resources.organizationalCapacity}/><Metric label="Treasury" value={campaign.resources.treasury}/><Metric label="Security" value={campaign.resources.security}/><Metric label="Exposure" value={campaign.resources.exposure} danger/></div>
-      <div className={styles.topActions}><button onClick={save}>Save</button><button onClick={() => setScreen('settings')}>⚙</button><button className="primary" onClick={advancePhase}>{campaign.phase === 'consequences' ? 'Advance month' : 'Next phase'} →</button></div>
+      <div className={styles.topMetrics}><Metric label="Stability" value={campaign.nationalStats.regimeStability}/><Metric label="Worker support" value={campaign.resources.workerSupport}/><Metric label="Exposure" value={campaign.resources.exposure} danger/><details className={styles.resourceDrawer}><summary>All resources</summary><div><Metric label="Influence" value={campaign.resources.politicalInfluence}/><Metric label="Capacity" value={campaign.resources.organizationalCapacity}/><Metric label="Treasury" value={campaign.resources.treasury}/><Metric label="Security" value={campaign.resources.security}/><Metric label="Legitimacy" value={campaign.resources.partyLegitimacy}/></div></details></div>
+      <div className={styles.topActions}><button onClick={save}>Save</button><button aria-label="Settings" onClick={() => { audioManager.play('dossier'); setScreen('settings'); }}>⚙</button><button className="primary" onClick={() => { audioManager.play(campaign.phase === 'consequences' ? 'telegram' : 'dossier'); advancePhase(); }}>{campaign.phase === 'consequences' ? 'Advance month' : 'Next phase'} →</button></div>
     </header>
     {notice && <div className={styles.notice} role="status" onAnimationEnd={() => setNotice('')}>{notice}</div>}
     <div className={styles.mainGrid}>
-      <aside className={styles.leftPanel}><p className={styles.kicker}>Workers’ Opposition</p>{campaign.settings.tutorialEnabled && !campaign.tutorialComplete && <div className={styles.tutorial}><strong>Guided opening</strong><p>{campaign.currentEventId ? 'Resolve the active dossier. Locked choices show the background or resource they require.' : campaign.phase === 'faction_management' ? 'Open Faction: assign organizers, protect cells, or allocate the monthly budget.' : campaign.phase === 'regional_operations' ? 'Select a region and compare named-organizer success and detection chances.' : campaign.phase === 'party_politics' ? 'Open Party, Laws, or Institutions. You have a limited political action economy.' : 'Read the national briefing, map uncertainty, and current objectives before advancing.'}</p><button onClick={() => { campaign.tutorialComplete = true; useGameStore.setState({ campaign: { ...campaign } }); }}>End guidance</button></div>}<h2>Immediate objectives</h2><ol>{campaign.objectives.map(item => <li key={item}>{item}</li>)}</ol><h3>Active operations</h3>{campaign.activeOperations.length ? campaign.activeOperations.map(op => <div className={styles.activeOperation} key={op.id}><strong>{humanize(op.operationId)}</strong><span>{humanize(op.regionId)} · {op.turnsRemaining} turn(s){op.organizerId ? ` · ${campaign.organizers[op.organizerId]?.name}` : ''}</span></div>) : <p className={styles.muted}>No operations in motion.</p>}<h3>Immediate threats</h3><p className={campaign.resources.exposure > 60 ? styles.warning : styles.muted}>{campaign.resources.exposure > 60 ? 'Security attention is approaching a raid threshold.' : 'Surveillance remains serious but contained.'}</p><h3>Turn structure</h3><ul className={styles.phaseList}>{Object.entries(PHASE_LABELS).map(([key,label]) => <li className={campaign.phase === key ? styles.currentPhase : ''} key={key}>{label}</li>)}</ul></aside>
-      <CampaignMap/>
+      <aside className={styles.leftPanel}><section className={styles.factionIdentity} aria-label="Player faction identity"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="34"/><path d="M20 51Q40 29 60 51M26 29H54M40 18V61"/></svg><div><p className={styles.kicker}>You lead</p><h1>Workers’ Opposition</h1><span>Faction activity prohibited · informal networks intact</span></div><dl><div><dt>Principal leaders</dt><dd>Kollontai · Shliapnikov · Medvedev</dd></div><div><dt>Your background</dt><dd>{humanize(campaign.settings.background)}</dd></div><div><dt>Opening strategy</dt><dd>{campaign.openingStrategy ? humanize(campaign.openingStrategy) : 'Decision pending'}</dd></div><div><dt>Institutional base</dt><dd>Trade unions · factory committees</dd></div></dl></section>{campaign.settings.tutorialEnabled && !campaign.tutorialComplete && <div className={styles.tutorial}><strong>Guided opening</strong><p>{campaign.currentEventId ? 'Resolve the active dossier. Locked choices show the background or resource they require.' : campaign.phase === 'faction_management' ? 'Open Faction: assign organizers, protect cells, or allocate the monthly budget.' : campaign.phase === 'regional_operations' ? 'Select a region and compare named-organizer success and detection chances.' : campaign.phase === 'party_politics' ? 'Open Party, Laws, or Institutions. You have a limited political action economy.' : 'Read the national briefing, map uncertainty, and current objectives before advancing.'}</p><button onClick={() => { campaign.tutorialComplete = true; useGameStore.setState({ campaign: { ...campaign } }); }}>End guidance</button></div>}<h2>Immediate objectives</h2><ol>{campaign.objectives.map(item => <li key={item}>{item}</li>)}</ol><h3>Active operations</h3>{campaign.activeOperations.length ? campaign.activeOperations.map(op => <div className={styles.activeOperation} key={op.id}><strong>{humanize(op.operationId)}</strong><span>{humanize(op.regionId)} · {op.turnsRemaining} turn(s){op.organizerId ? ` · ${campaign.organizers[op.organizerId]?.name}` : ''}</span></div>) : <p className={styles.muted}>No operations in motion.</p>}<h3>Immediate threats</h3><p className={campaign.resources.exposure > 60 ? styles.warning : styles.muted}>{campaign.resources.exposure > 60 ? 'Security attention is approaching a raid threshold.' : 'Surveillance remains serious but contained.'}</p><h3>Turn structure</h3><ul className={styles.phaseList}>{Object.entries(PHASE_LABELS).map(([key,label]) => <li className={campaign.phase === key ? styles.currentPhase : ''} key={key}>{label}</li>)}</ul></aside>
+      <GeographicMap/>
       <aside className={styles.rightPanel}><RegionPanel/></aside>
       <EventDrawer/>
     </div>

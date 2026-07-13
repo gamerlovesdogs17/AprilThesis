@@ -4,14 +4,25 @@ import { institutions, laws } from './institutions';
 import { events } from './events';
 import { operations, endings, publications } from './operations';
 import { mapGeometries, getRegionPath } from './mapGeometry';
+import { cities, rivers, railways, seas, geographicContext } from './geography';
 
 // Attach map paths to region definitions
 export const regionsWithPaths = regions.map(r => ({
   ...r,
   mapPath: getRegionPath(r.id),
+  centerX: mapGeometries.find(geometry => geometry.id === r.id)?.centerX ?? r.centerX,
+  centerY: mapGeometries.find(geometry => geometry.id === r.id)?.centerY ?? r.centerY,
+  influenceNodes: [{
+    id: `${r.id}-main`,
+    x: mapGeometries.find(geometry => geometry.id === r.id)?.centerX ?? r.centerX,
+    y: mapGeometries.find(geometry => geometry.id === r.id)?.centerY ?? r.centerY,
+    type: 'city' as const,
+    name: r.majorCities[0] ?? r.name,
+  }],
 }));
 
-export { regions, characters, institutions, laws, events, operations, endings, publications, mapGeometries, getRegionPath };
+export { regions, characters, institutions, laws, events, operations, endings, publications, mapGeometries, getRegionPath, cities, rivers, railways, seas, geographicContext };
+export * from './geography';
 export { regionsWithPaths as gameRegions };
 
 export function getContentBundle() {
@@ -25,6 +36,11 @@ export function getContentBundle() {
     endings,
     publications,
     mapGeometries,
+    cities,
+    rivers,
+    railways,
+    seas,
+    geographicContext,
   };
 }
 

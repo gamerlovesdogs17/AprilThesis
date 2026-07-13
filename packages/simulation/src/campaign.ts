@@ -12,6 +12,7 @@ import { CAMPAIGN_START_DATE } from '@april-thesis/shared-types';
 import type { RegionDefinition, CharacterDefinition, InstitutionDefinition, LawDefinition } from '@april-thesis/content-schema';
 import { SeededRng } from './rng';
 import { applyBackgroundBlocEffects, initializePoliticalSystems } from './politics';
+import { captureCampaignSnapshot } from './history';
 
 const DIFFICULTY_MODIFIERS: Record<Difficulty, Partial<FactionResources>> = {
   lenient: { treasury: 15, security: 10, intelligence: 10, partyLegitimacy: 5 },
@@ -244,7 +245,7 @@ export function createCampaign(
   const political = initializePoliticalSystems(resources.intelligence);
   political.factionBlocs = applyBackgroundBlocEffects(political.factionBlocs, settings.background);
 
-  return {
+  const campaign: CampaignState = {
     settings,
     currentDate: CAMPAIGN_START_DATE,
     turnNumber: 1,
@@ -289,7 +290,10 @@ export function createCampaign(
       nep_proposed: true,
       famine_active: true,
     },
+    historySnapshots: [],
   };
+  campaign.historySnapshots = [captureCampaignSnapshot(campaign)];
+  return campaign;
 }
 
 function clamp(v: number, min: number, max: number): number {

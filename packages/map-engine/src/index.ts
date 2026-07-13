@@ -15,6 +15,8 @@ export interface MapRegionGeometry {
   centerY: number;
   labelX: number;
   labelY: number;
+  labelPriority?: number;
+  neighborIds?: string[];
 }
 
 export interface ContourLine {

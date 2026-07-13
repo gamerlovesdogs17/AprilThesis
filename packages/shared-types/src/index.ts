@@ -319,6 +319,22 @@ export interface CampaignSettings {
   autosaveFrequency: number;
 }
 
+export interface CampaignHistorySnapshot {
+  date: string;
+  industrialProduction: number;
+  foodSupply: number;
+  famineSeverity: number;
+  regimeStability: number;
+  partyUnity: number;
+  workerSupport: number;
+  partyLegitimacy: number;
+  revolutionaryCredibility: number;
+  publicLegitimacy: number;
+  exposure: number;
+  security: number;
+  regionHighlights: Array<{ regionId: string; foodSupply: number; unrest: number; influence: number }>;
+}
+
 export interface CampaignState {
   settings: CampaignSettings;
   currentDate: string;
@@ -359,6 +375,7 @@ export interface CampaignState {
   monthlyBudget: Record<string, number>;
   voteState: VoteState | null;
   flags: Record<string, boolean | number | string>;
+  historySnapshots: CampaignHistorySnapshot[];
 }
 
 export interface VoteState {
@@ -405,11 +422,15 @@ export interface UserPreferences {
   textScale: number;
   introViewed: boolean;
   colorblindMode: boolean;
+  enhancedInfluence: boolean;
+  mapAnimation: boolean;
+  ambientVisualEffects: boolean;
+  audioPreload: 'minimal' | 'full';
 }
 
-export const GAME_VERSION = '0.2.0';
-export const CONTENT_VERSION = '0.2.0';
-export const SAVE_VERSION = 2;
+export const GAME_VERSION = '0.3.0';
+export const CONTENT_VERSION = '0.3.0';
+export const SAVE_VERSION = 3;
 export const CAMPAIGN_START_DATE = '1921-03';
 export const CAMPAIGN_END_DATE = '1924-04';
 export const VERTICAL_SLICE_END = '1921-08';

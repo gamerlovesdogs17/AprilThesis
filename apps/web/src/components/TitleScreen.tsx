@@ -26,6 +26,7 @@ export function TitleScreen() {
       <header className={styles.header}>
         <h1 className={styles.title}>APRIL THESIS</h1>
         <p className={styles.subtitle}>The Revolution After Victory</p>
+        <p className={styles.campaignLine}>Lead the Workers’ Opposition through the crisis of 1921.</p>
         <blockquote className={styles.quote}>
           &ldquo;The revolution was won once. Now it must decide what it has become.&rdquo;
         </blockquote>
@@ -57,7 +58,7 @@ export function TitleScreen() {
       </nav>
 
       <footer className={styles.footer}>
-        <p>March 1921 — April 1924 &middot; Soviet Russia</p>
+        <p>Playable chapter · March–August 1921 · Soviet Russia</p>
         <p className={styles.note}>
           The historical &ldquo;April Theses&rdquo; were presented by Lenin in 1917.
           This game begins in 1921, after civil war victory.

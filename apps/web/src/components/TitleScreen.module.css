@@ -43,6 +43,8 @@
   margin-top: 8px;
 }
 
+.campaignLine { margin-top: 16px; color: #ead4b0; font: 600 1rem var(--font-serif); letter-spacing: .04em; }
+
 .quote {
   font-family: var(--font-serif);
   font-size: 0.95rem;

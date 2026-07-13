@@ -1,13 +1,12 @@
 # TODO Next
 
-Phase Two's requested March-August political-system work is complete. These are deliberate follow-ups, not missing acceptance items.
+Phase Three acceptance work is complete. These are optional future research or production tasks, not missing items.
 
-1. Extend the authored campaign beyond the September 1921 chapter outcome toward the original 1921-1924 concept.
-2. Replace abstract strategic polygons with researched 1921 gameplay boundaries while retaining current region IDs and accessibility patterns.
-3. Perform a fact-by-fact scholarly review of character offices, regional descriptions, and the labeled composite June vote.
-4. Add more documented proposals, votes, and delegate rosters after archival research; keep composites clearly marked.
-5. Deepen organizer interpersonal conflict, interrogation, exile, recovery, and prison consequences.
-6. Add public-domain portraits only after subject, date, creator, license, and manifest verification.
-7. Expand regional newspapers, archival issue browsing, and longer story chains.
-8. Run dedicated screen-reader, small-laptop, and performance audits.
-9. Re-run `npm run test:e2e` in an environment that permits the Playwright Chromium launcher and maintain the 11-scenario suite as UI changes land.
+1. Commission a specialist historical cartography review of 1921 administrative and military-front boundaries while preserving all gameplay IDs.
+2. Verify every city population, office title, and regional economic description against date-specific primary or scholarly sources.
+3. Add verified public-domain portraits only after creator, date, subject, source, license, local file, manifest record, and fallback behavior are documented.
+4. Add more publication templates and archival issue browsing without flattening editorial voices.
+5. Conduct dedicated screen-reader, color-vision, small-laptop, and performance audits.
+6. Add visual-regression thresholds for the existing before/after screenshot routes.
+7. Deepen organizer interrogation, exile, recovery, and interpersonal consequences without expanding the campaign date range.
+8. Treat any future 1922–1924 campaign as a separately scoped authored phase with new research, balance, content, and testing—not an implicit continuation of Phase Three.

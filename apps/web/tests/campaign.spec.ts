@@ -1,11 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 async function launchCampaign(page: Page, background?: string) {
   await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ introViewed: true, muted: true, reducedMotion: true })));
   await page.goto('/');
   await page.getByRole('button', { name: 'New Campaign' }).click();
   if (background) await page.getByRole('radio', { name: new RegExp(background, 'i') }).click();
-  await page.getByRole('button', { name: 'Open the March dossier' }).click();
+  await page.getByRole('button', { name: 'Open your faction dossier' }).click();
 }
 
 async function chooseAndDismiss(page: Page, name: RegExp | string) {
@@ -24,7 +26,7 @@ async function resolveOpening(page: Page) {
 
 test('starts a campaign, resolves the opening, uses the map, and saves', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
-  await page.getByRole('button', { name: /Petrograd: 30/ }).click();
+  await page.getByLabel('Focus strategic region').selectOption('petrograd');
   await expect(page.getByRole('heading', { name: 'Petrograd' })).toBeVisible();
   await page.getByLabel('Map mode').selectOption('famine_disease');
   await expect(page.getByText('Famine severity and disease burden')).toBeVisible();
@@ -40,8 +42,8 @@ test('starts a campaign, resolves the opening, uses the map, and saves', async (
 test('reduced-motion introduction remains skippable without audio', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ reducedMotion: true, introViewed: false, muted: true })));
   await page.goto('/');
-  await expect(page.getByText('March 1921. The Tenth Party Congress has banned organized factions.')).toBeVisible();
-  await page.getByRole('button', { name: 'Continue to Title Screen' }).click();
+  await expect(page.getByRole('heading', { name: 'YOU LEAD THE WORKERS’ OPPOSITION' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continue to title screen' }).click();
   await expect(page.getByRole('button', { name: 'New Campaign' })).toBeVisible();
 });
 
@@ -57,7 +59,7 @@ test('setup background gates strategy choices and changes the dossier', async ({
 
 test('faction phase assigns a named organizer to a selected region', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
-  await page.getByRole('button', { name: /Petrograd: 30/ }).click();
+  await page.getByLabel('Focus strategic region').selectOption('petrograd');
   await page.getByRole('button', { name: /Next phase/ }).click();
   await page.getByRole('button', { name: 'Faction', exact: true }).click();
   const anna = page.locator('article').filter({ hasText: 'Anna Sokolova' });
@@ -129,11 +131,205 @@ test('save manager can duplicate and export a manual slot', async ({ page }) => 
   await launchCampaign(page);
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: 'Archive', exact: true }).click();
-  const manual = page.getByRole('button', { name: /Manual · March 1921/ });
+  const manual = page.getByRole('button', { name: /Manual · March 1921/ }).first();
   const row = manual.locator('..');
   await row.getByRole('button', { name: 'Duplicate' }).click();
   await expect(page.getByRole('button', { name: /copy/ })).toBeVisible();
   const download = page.waitForEvent('download');
   await row.getByRole('button', { name: 'Export' }).click();
   expect((await download).suggestedFilename()).toMatch(/april-thesis-save/);
+});
+
+test('map zoom, reset, fit-region, and keyboard controls stay clamped', async ({ page }) => {
+  await launchCampaign(page); await resolveOpening(page);
+  const zoom = page.getByLabel('Map zoom');
+  await expect(zoom).toHaveText('100%');
+  for (let i = 0; i < 10; i++) await page.getByTestId('zoom-in').click();
+  await expect(zoom).toHaveText('400%');
+  await page.getByLabel('Focus strategic region').selectOption('petrograd');
+  await page.getByTestId('fit-region').click();
+  await expect(zoom).toHaveText('245%');
+  await page.getByTestId('reset-map').click();
+  await expect(zoom).toHaveText('100%');
+});
+
+test('geographic layers toggle independently and preserve the selected region', async ({ page }) => {
+  await launchCampaign(page); await resolveOpening(page);
+  await page.getByLabel('Focus strategic region').selectOption('moscow');
+  await page.getByLabel('city labels').uncheck();
+  await expect(page.getByTestId('city-layer')).toHaveCount(0);
+  await page.getByLabel('city labels').check();
+  await expect(page.getByTestId('city-layer')).toBeVisible();
+  await expect(page.getByTestId('railway-layer')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Moscow' })).toBeVisible();
+  await page.getByLabel('Influence opacity').fill('0.4');
+});
+
+test('map uses historical city names and reveals secondary labels on zoom', async ({ page }) => {
+  await launchCampaign(page); await resolveOpening(page);
+  await expect(page.locator('[data-city-id="novonikolayevsk-city"]')).toHaveCount(1);
+  await page.getByTestId('zoom-in').click();
+  await page.getByTestId('zoom-in').click();
+  await expect(page.locator('[data-city-id="novonikolayevsk-city"]')).toContainText('Novo-Nikolayevsk');
+  await expect(page.locator('[data-city-id="tiflis-city"]')).toContainText('Tiflis');
+});
+
+test('campaign keeps faction identity visible before and after the opening choices', async ({ page }) => {
+  await launchCampaign(page, 'Trade-Union Organizer');
+  await expect(page.getByLabel('Player faction identity')).toContainText('Workers’ Opposition');
+  await expect(page.getByLabel('Player faction identity')).toContainText('Faction activity prohibited');
+  await resolveOpening(page);
+  await expect(page.getByLabel('Player faction identity')).toContainText('Trade Union Mobilization');
+});
+
+test('economy, institutions, and party sections render real campaign charts', async ({ page }) => {
+  await launchCampaign(page);
+  await page.getByRole('button', { name: 'Economy', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'National conditions timeline' })).toBeVisible();
+  await expect(page.getByRole('table', { name: 'National conditions by month' })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Institutions', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Institutional balance' })).toBeVisible();
+  await page.getByRole('button', { name: 'Party', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Bloc seating and commitments' })).toBeVisible();
+});
+
+test('character dossiers use designed portrait fallbacks and active agendas', async ({ page }) => {
+  await launchCampaign(page);
+  await page.getByRole('button', { name: 'Characters', exact: true }).click();
+  await expect(page.locator('[class*="characterPortrait"]')).toHaveCount(15);
+  await expect(page.getByText('Current agenda', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Vladimir Lenin', { exact: true })).toBeVisible();
+});
+
+test('cinematic scenes expose geographic collapse, congress, faction, and title beats', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ introViewed: false, muted: true, reducedMotion: false, audioPreload: 'minimal' })));
+  await page.goto('/?introScene=civil-war');
+  await expect(page.getByText('Revolution became civil war.')).toBeVisible();
+  await page.goto('/?introScene=congress');
+  await expect(page.getByText(/ORGANIZED FACTIONS/)).toBeVisible();
+  await page.goto('/?introScene=opposition');
+  await expect(page.getByRole('heading', { name: /YOU LEAD THE/ })).toBeVisible();
+  await page.goto('/?introScene=title');
+  await expect(page.getByRole('heading', { name: 'APRIL THESIS' })).toBeVisible();
+});
+
+test('every manifest asset responds locally without a network dependency', async ({ page, request }) => {
+  await page.goto('/');
+  const manifest = await (await request.get('/assets/assets-manifest.json')).json() as { assets: Array<{ localPath: string }> };
+  expect(manifest.assets.length).toBeGreaterThanOrEqual(16);
+  for (const asset of manifest.assets) {
+    const url = `/${asset.localPath.replace('apps/web/public/', '')}`;
+    const response = await request.get(url);
+    expect(response.ok(), asset.localPath).toBe(true);
+  }
+});
+
+test('audio activation requests real local ambience and telegraph files', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ introViewed: false, muted: false, reducedMotion: false, masterVolume: .8, ambienceVolume: .6, interfaceVolume: .7, audioPreload: 'minimal' })));
+  const requested: string[] = [];
+  page.on('request', request => requested.push(request.url()));
+  await page.goto('/?introScene=old-order');
+  await page.getByRole('button', { name: 'Enable cinematic audio' }).click();
+  await expect.poll(() => requested.some(url => url.endsWith('/assets/audio/ambience/winter-wind.wav'))).toBe(true);
+  await expect.poll(() => requested.some(url => url.endsWith('/assets/audio/cinematic/telegraph.wav'))).toBe(true);
+  await expect(page.getByText('[Winter wind. Telegraph keys begin.]')).toBeVisible();
+});
+
+test('stamp test uses a real asset and mute persists through settings', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ introViewed: true, muted: false, reducedMotion: true, masterVolume: .8, interfaceVolume: .7, audioPreload: 'minimal' })));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const stampRequest = page.waitForRequest(request => request.url().endsWith('/assets/audio/cinematic/stamp-impact.wav'));
+  await page.getByRole('button', { name: 'Test stamp sound' }).click();
+  await stampRequest;
+  await page.getByLabel('Mute audio').check();
+  await expect(page.getByLabel('Mute audio')).toBeChecked();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('april-thesis-preferences') ?? '{}').muted)).toBe(true);
+});
+
+test('map pointer drag pans the geographic viewport', async ({ page }) => {
+  await launchCampaign(page); await resolveOpening(page);
+  const map = page.getByTestId('geographic-map');
+  const viewport = page.getByTestId('map-viewport');
+  const before = await viewport.getAttribute('style');
+  const box = await map.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width * .55, box!.y + box!.height * .52);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width * .68, box!.y + box!.height * .62, { steps: 6 });
+  await page.mouse.up();
+  await expect(viewport).not.toHaveAttribute('style', before ?? '');
+  await expect(viewport).toHaveAttribute('style', /translate\((?!0px, 0px)/);
+});
+
+test('railway and political influence layers toggle from real controls', async ({ page }) => {
+  await launchCampaign(page); await resolveOpening(page);
+  await expect(page.getByTestId('railway-layer')).toBeVisible();
+  await page.getByTestId('toggle-railways').click();
+  await expect(page.getByTestId('railway-layer')).toHaveCount(0);
+  await expect(page.getByTestId('influence-layer')).toBeVisible();
+  await page.getByTestId('toggle-influence').click();
+  await expect(page.getByTestId('influence-layer')).toHaveCount(0);
+});
+
+test('selected region exposes comparison data for adjacent regions', async ({ page }) => {
+  await launchCampaign(page); await resolveOpening(page);
+  await page.getByLabel('Focus strategic region').selectOption('petrograd');
+  const comparison = page.getByRole('heading', { name: 'Regional comparison' }).locator('..');
+  await expect(comparison).toBeVisible();
+  await expect(comparison).toContainText(/baltic frontier/i);
+  await expect(comparison).toContainText(/karelia/i);
+});
+
+test('imports and loads a pre-Phase-Three save through the archive', async ({ page }) => {
+  await launchCampaign(page);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Archive', exact: true }).click();
+  const manual = page.getByRole('button', { name: /Manual · March 1921/ }).first();
+  const downloadEvent = page.waitForEvent('download');
+  await manual.locator('..').getByRole('button', { name: 'Export' }).click();
+  const exported = await downloadEvent;
+  const exportedPath = await exported.path();
+  expect(exportedPath).not.toBeNull();
+  const legacy = JSON.parse(await readFile(exportedPath!, 'utf8'));
+  legacy.saveVersion = 2;
+  delete legacy.campaign.historySnapshots;
+  delete legacy.checksum;
+  await page.getByLabel('Import save file').setInputFiles({ name: 'phase-two-save.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacy)) });
+  await expect(page.getByRole('alert')).toContainText('Imported phase-two-save.json');
+  await page.getByRole('button', { name: /Manual · March 1921/ }).last().click();
+  await page.getByRole('button', { name: 'Economy', exact: true }).click();
+  await expect(page.getByText(/1 snapshot · real campaign history/)).toBeVisible();
+});
+
+test('plays a full month and records history without console errors', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('pageerror', error => errors.push(error.message));
+  await launchCampaign(page); await resolveOpening(page);
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: /Next phase/ }).click();
+  await page.getByRole('button', { name: /Advance month/ }).click();
+  await page.getByRole('button', { name: 'Return to map' }).click();
+  await expect(page.getByText('April 1921', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Economy', exact: true }).click();
+  await expect(page.getByText(/2 snapshots · real campaign history/)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('captures final national, western, Caucasus, and Siberian review views', async ({ page }) => {
+  const output = resolve('../../docs/review-screenshots/phase-three-after');
+  await launchCampaign(page); await resolveOpening(page);
+  await page.screenshot({ path: resolve(output, 'main-political-map.png') });
+  for (const [region, file] of [['moscow','western-russia-zoom.png'],['georgia','caucasus-zoom.png'],['western_siberia','siberia-zoom.png']] as const) {
+    await page.getByLabel('Focus strategic region').selectOption(region);
+    await page.getByTestId('fit-region').click();
+    await page.screenshot({ path: resolve(output, file) });
+  }
+  await page.getByTestId('reset-map').click();
+  await page.getByLabel('Focus strategic region').selectOption('');
+  await page.screenshot({ path: resolve(output, 'city-labels.png') });
+  await page.getByLabel('Map mode').selectOption('railway_infrastructure');
+  await page.screenshot({ path: resolve(output, 'railway-layer.png') });
+  await page.getByRole('button', { name: 'Economy', exact: true }).click();
+  await page.screenshot({ path: resolve(output, 'national-charts.png') });
 });

@@ -30,6 +30,7 @@ export {
   computeChecksum,
   type SaveSlot,
 } from './save';
+export { captureCampaignSnapshot, appendCampaignSnapshot, deriveNationalChartSeries } from './history';
 export {
   initializePoliticalSystems,
   refreshVoteEstimate,
