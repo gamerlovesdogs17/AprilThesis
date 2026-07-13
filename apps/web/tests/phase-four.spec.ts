@@ -11,6 +11,7 @@ async function startCampaign(page:Page,tutorial=false,hints=false){
   const launch=page.getByRole('button',{name:'Open your faction dossier'});await launch.click();
   if(!(await page.getByTestId('geographic-map').isVisible())&&await launch.isVisible())await launch.click();
   await expect(page.getByTestId('geographic-map')).toBeVisible();
+  const boardClose=page.getByRole('button',{name:'Close Situation Board'});if(await boardClose.count())await boardClose.click();
 }
 
 async function resolveOpening(page:Page){
@@ -98,13 +99,13 @@ test('national labels stay restrained while province view reveals local detail',
   await startCampaign(page,false);await resolveOpening(page);
   const national=await page.locator('[data-city-id][data-label-visible="true"]').count();expect(national).toBeGreaterThanOrEqual(8);expect(national).toBeLessThanOrEqual(12);
   await page.getByLabel('Select historical province').selectOption('petrograd-governorate');await page.getByTestId('enter-province').click();
-  await expect(page.getByTestId('province-detail-view')).toBeVisible();await expect(page.getByRole('img',{name:'Detailed local atlas of Petrograd Governorate'})).toBeVisible();await page.getByTestId('reset-map').click();await expect(page.getByLabel('Map zoom')).toHaveText('100%');
+  await expect(page.getByTestId('province-detail-view')).toBeVisible();await expect(page.getByRole('img',{name:'Geographic province atlas of Petrograd Governorate'})).toBeVisible();await page.getByTestId('reset-map').click();await expect(page.getByLabel('Map zoom')).toHaveText('100%');
 });
 
 test('all-label preference is opt-in and collision suppression remains the default',async({page})=>{
   await startCampaign(page,false);const before=await page.locator('[data-city-id]').count();
   await page.getByRole('button',{name:'Settings'}).click();await page.getByLabel('Show all city labels').check();await page.getByRole('button',{name:/Return to campaign/}).click();
-  await expect(page.locator('[data-city-id]')).toHaveCount(21);expect(before).toBeLessThan(21);
+  await expect(page.locator('[data-city-id]')).toHaveCount(36);expect(before).toBeLessThan(36);
 });
 
 test('selecting, focusing, and dragging do not create text selection or accidental region changes',async({page})=>{

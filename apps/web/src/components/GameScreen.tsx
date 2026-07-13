@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MapMode, RegionState } from '@april-thesis/shared-types';
 import { formatGameDate } from '@april-thesis/shared-types';
 import {
@@ -15,6 +15,7 @@ import { getOperationEligibility, isEventChoiceEligible } from '@april-thesis/si
 import { useGameStore } from '../store/gameStore';
 import { SaveArchivePanel } from './AuxiliaryScreens';
 import { GeographicMap } from './GeographicMap';
+import { CampaignHistoryStrip, SituationBoardOverlay } from './CampaignPresentation';
 import { InstitutionalBalanceChart, NationalDashboard, RegionalComparisonChart, VoteSeatingChart } from './PoliticalCharts';
 import { audioManager } from '../audio/audioManager';
 import { BeginnerHint, TutorialCompletionPanel, TutorialOverlay } from './GuidedOverlays';
@@ -299,6 +300,7 @@ function Newspapers() {
 
 export function GameScreen() {
   const campaign = useGameStore(s => s.campaign);
+  const preferences = useGameStore(s => s.preferences);
   const advancePhase = useGameStore(s => s.advancePhase);
   const setScreen = useGameStore(s => s.setScreen);
   const saveGame = useGameStore(s => s.saveGame);
@@ -311,9 +313,23 @@ export function GameScreen() {
   const turnSummary = useGameStore(s => s.turnSummary);
   const dismissTurnSummary = useGameStore(s => s.dismissTurnSummary);
   const [notice, setNotice] = useState('');
+  const [situationBoardOpen,setSituationBoardOpen]=useState(false);
+  const [campaignHistoryOpen,setCampaignHistoryOpen]=useState(false);
+  const boardAutoOpenedMonth=useRef<string|null>(null);
   useEffect(() => {
     if (turnSummary) audioManager.play('paper');
   }, [turnSummary]);
+  useEffect(()=>{
+    if(campaign?.settings.tutorialEnabled&&!campaign.tutorialComplete){
+      boardAutoOpenedMonth.current=campaign.situationBoard.month;
+      return;
+    }
+    const tutorialAllowsBoard=Boolean(campaign&&(!campaign.settings.tutorialEnabled||campaign.tutorialComplete));
+    if(campaign&&tutorialAllowsBoard&&preferences.situationBoardEnabled&&!campaign.situationBoard.dismissed&&!turnSummary&&boardAutoOpenedMonth.current!==campaign.situationBoard.month){
+      boardAutoOpenedMonth.current=campaign.situationBoard.month;
+      setSituationBoardOpen(true);
+    }
+  },[campaign?.situationBoard.month,campaign?.situationBoard.dismissed,campaign?.tutorialPaused,campaign?.tutorialComplete,preferences.situationBoardEnabled,turnSummary]);
   useEffect(() => {
     if (!campaign) return;
     const averageFamine=Object.values(campaign.regions).reduce((sum,region)=>sum+region.famineSeverity,0)/Math.max(1,Object.keys(campaign.regions).length);
@@ -334,7 +350,7 @@ export function GameScreen() {
     <header className={styles.topBar}>
       <div className={styles.dateBlock} data-tutorial="phase-progress"><strong>{formatGameDate(campaign.currentDate)}</strong><span>Turn {campaign.turnNumber} · {PHASE_LABELS[campaign.phase]}</span><div className={styles.phaseProgress}>{Object.keys(PHASE_LABELS).map(key => <i key={key} className={campaign.phase === key ? styles.phaseActive : ''}/>)}</div></div>
       <div className={styles.topMetrics}><Metric label="Stability" value={campaign.nationalStats.regimeStability}/><Metric label="Worker support" value={campaign.resources.workerSupport}/><div data-tutorial="exposure-meter"><Metric label="Exposure" value={campaign.resources.exposure} danger/></div><details className={styles.resourceDrawer}><summary>All resources</summary><div><Metric label="Influence" value={campaign.resources.politicalInfluence}/><Metric label="Capacity" value={campaign.resources.organizationalCapacity}/><Metric label="Treasury" value={campaign.resources.treasury}/><Metric label="Security" value={campaign.resources.security}/><Metric label="Legitimacy" value={campaign.resources.partyLegitimacy}/></div></details></div>
-      <div className={styles.topActions}><span className={campaignDirty ? styles.unsaved : styles.saved}>{campaignDirty ? 'Unsaved changes' : 'Saved'}</span><button data-tutorial="save-campaign" onClick={save}>Save</button><button aria-label="Settings" title="Settings" onClick={() => { audioManager.play('dossier'); setScreen('settings'); }}>Settings</button><button className="primary" data-tutorial="advance-phase" onClick={() => { audioManager.play(campaign.phase === 'consequences' ? 'telegram' : 'dossier'); advancePhase(); }}>{campaign.phase === 'consequences' ? 'Advance month' : 'Next phase'} →</button></div>
+      <div className={styles.topActions}><span className={campaignDirty ? styles.unsaved : styles.saved}>{campaignDirty ? 'Unsaved changes' : 'Saved'}</span><button onClick={()=>setSituationBoardOpen(true)}>Situation Board</button><button onClick={()=>setCampaignHistoryOpen(true)}>Campaign History</button><button data-tutorial="save-campaign" onClick={save}>Save</button><button aria-label="Settings" title="Settings" onClick={() => { audioManager.play('dossier'); setScreen('settings'); }}>Settings</button><button className="primary" data-tutorial="advance-phase" onClick={() => { audioManager.play(campaign.phase === 'consequences' ? 'telegram' : 'dossier'); advancePhase(); }}>{campaign.phase === 'consequences' ? 'Advance month' : 'Next phase'} →</button></div>
     </header>
     {notice && <div className={styles.notice} role="status" onAnimationEnd={() => setNotice('')}>{notice}</div>}
     <div className={`${styles.mainGrid} ${leftCollapsed ? styles.mainGridLeftCollapsed : ''}`}>
@@ -348,6 +364,8 @@ export function GameScreen() {
     {campaign.settings.tutorialEnabled && !campaign.tutorialComplete && !campaign.tutorialPaused && <TutorialOverlay/>}
     <TutorialCompletionPanel/>
     <BeginnerHint/>
+    <SituationBoardOverlay open={situationBoardOpen} onClose={()=>setSituationBoardOpen(false)}/>
+    <CampaignHistoryStrip open={campaignHistoryOpen} onClose={()=>setCampaignHistoryOpen(false)}/>
     {turnSummary && <div className={styles.summary} role="dialog" aria-label="Turn report"><p className={styles.kicker}>Monthly resolution</p><h2>Dispatches from the field</h2>{turnSummary.map(line => <p key={line}>{line}</p>)}<button className="primary" onClick={dismissTurnSummary}>Return to map</button></div>}
   </main>;
 }

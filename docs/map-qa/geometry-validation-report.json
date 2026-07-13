@@ -1,0 +1,33 @@
+{
+  "targetDate": "1921-03-01",
+  "sourceRuleCount": 96,
+  "provinceRecordCount": 96,
+  "activeProvinceCount": 93,
+  "districtCount": 646,
+  "formalGovernmentCount": 14,
+  "strategicAggregateCount": 28,
+  "cityCount": 36,
+  "siteCount": 24,
+  "railwaySegmentCount": 82,
+  "riverSegmentCount": 694,
+  "smallIslandOrSliverPartsUnderTenSquareKilometers": 0,
+  "severe": {
+    "duplicateProvinceIds": [],
+    "duplicateDistrictIds": [],
+    "invalidProvinces": [],
+    "invalidDistricts": [],
+    "invalidPolygonTypes": [],
+    "overlapsOverOneSquareKilometer": [],
+    "orphanDistrictProvinceIds": [],
+    "missingStrategicMappings": [],
+    "extraStrategicMappings": [],
+    "missingGeneratedAggregateIds": [],
+    "citiesOutsideAssignedProvince": [],
+    "sitesOutsideAssignedProvince": [],
+    "railwaySegmentsOutsideTerritory": [],
+    "riverSegmentsOutsideTerritory": [],
+    "invalidDateRanges": [],
+    "missingProvinceSourceMetadata": [],
+    "missingSiteSourceMetadata": []
+  }
+}

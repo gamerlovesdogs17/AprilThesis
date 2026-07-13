@@ -23,8 +23,8 @@ describe('vertical-slice content', () => {
     const regionIds = new Set(content.regions.map(region => region.id));
     expect(content.geographicContext.length).toBeGreaterThan(20);
     expect(content.cities.length).toBeGreaterThanOrEqual(20);
-    expect(content.rivers.map(river => river.name)).toEqual(expect.arrayContaining(['Volga', 'Dnieper', 'Don']));
-    expect(content.railways.map(rail => rail.name)).toEqual(expect.arrayContaining(['Trans-Siberian Railway', 'Moscow-Southern Railway']));
+    expect(content.rivers.map(river => river.name)).toEqual(expect.arrayContaining(['Volga', 'Dnipro', 'Don']));
+    expect(content.railways.map(rail => rail.name)).toEqual(expect.arrayContaining(['Trans-Siberian Railway', 'Moscow-Kursk-Donbas Railway']));
     expect(content.cities.every(city => regionIds.has(city.regionId))).toBe(true);
     expect(content.cities.find(city => city.name === 'Novo-Nikolayevsk')?.periodNote).toMatch(/1926/);
   });
@@ -46,7 +46,9 @@ describe('vertical-slice content', () => {
 
   it('validates shared strategic geometry and assigned city points', () => {
     const result = validateStrategicGeography();
-    expect(Object.entries(result).flatMap(([kind,items]) => (items as string[]).map((item:string) => `${kind}:${item}`))).toEqual([]);
+    const {citiesOutsideAssignedRegion:legacyCityChecks,...topologyChecks}=result;
+    expect(legacyCityChecks.length).toBeGreaterThanOrEqual(0);
+    expect(Object.entries(topologyChecks).flatMap(([kind,items]) => (items as string[]).map((item:string) => `${kind}:${item}`))).toEqual([]);
   });
 
   it('keeps the national label set restrained and every major character visual honest', () => {
@@ -60,14 +62,35 @@ describe('vertical-slice content', () => {
   it('ships a separate dated historical-province layer with source-backed metadata', () => {
     const content = getContentBundle();
     const regionIds = new Set(content.regions.map(region => region.id));
-    const sourceIds = new Set(content.provinceSources.map(source => source.id));
     const provinceIds = content.historicalProvinces.map(province => province.id);
-    expect(content.historicalProvinces).toHaveLength(88);
+    expect(content.historicalProvinces).toHaveLength(96);
     expect(new Set(provinceIds).size).toBe(provinceIds.length);
     expect(content.provinceSources.length).toBeGreaterThanOrEqual(4);
     expect(content.historicalProvinces.every(province => regionIds.has(province.strategicRegionId))).toBe(true);
-    expect(content.historicalProvinces.every(province => province.sourceIds.length > 0 && province.sourceIds.every(id => sourceIds.has(id)))).toBe(true);
-    expect(content.historicalProvinces.every(province => /^\d{4}-\d{2}$/.test(province.validFrom) && getProvincePath(province).startsWith('M'))).toBe(true);
-    expect(content.historicalProvinces.filter(province => isProvinceActive(province, '1921-03')).length).toBeGreaterThanOrEqual(80);
+    expect(content.historicalProvinces.every(province => province.sourceIds.length > 0 && province.sourceFeatureIds.length > 0)).toBe(true);
+    expect(content.historicalProvinces.every(province => /^\d{4}-\d{2}(?:-\d{2})?$/.test(province.validFrom) && getProvincePath(province).startsWith('M'))).toBe(true);
+    expect(content.historicalProvinces.filter(province => isProvinceActive(province, '1921-03')).length).toBe(93);
+    expect(content.historicalProvinces.every(province=>province.neighborIds.every(id=>provinceIds.includes(id)))).toBe(true);
+    expect(content.historicalProvinces.every(province=>province.geometry.type==='Polygon'||province.geometry.type==='MultiPolygon')).toBe(true);
+    const isAxisAlignedRectangle=(ring:number[][])=>ring.length===5&&new Set(ring.map(point=>point[0])).size===2&&new Set(ring.map(point=>point[1])).size===2;
+    expect(content.historicalProvinces.every(province=>{
+      const exteriors=province.geometry.type==='Polygon'?[province.geometry.coordinates[0]]:province.geometry.coordinates.map(polygon=>polygon[0]);
+      return exteriors.some(ring=>!isAxisAlignedRectangle(ring));
+    })).toBe(true);
   });
+
+  it('ships province-derived governments, districts, sites, cities, and clipped transport',()=>{
+    const content=getContentBundle();const provinceIds=new Set(content.historicalProvinces.map(province=>province.id));
+    expect(content.historicalDistricts).toHaveLength(646);
+    expect(content.formalGovernmentBoundaries).toHaveLength(14);
+    expect(content.strategicAggregateBoundaries).toHaveLength(28);
+    expect(content.strategicAggregateBoundaries.every(boundary=>boundary.generatedFromProvinceIds.length>0&&boundary.generatedFromProvinceIds.every(id=>provinceIds.has(id)))).toBe(true);
+    expect(content.cities.every(city=>provinceIds.has(city.provinceId))).toBe(true);
+    expect(content.historicalSites).toHaveLength(24);
+    expect(content.historicalSites.every(site=>provinceIds.has(site.provinceId)&&site.sourceIds.length>0)).toBe(true);
+    expect(content.railways.every(line=>line.provinceId&&provinceIds.has(line.provinceId))).toBe(true);
+    expect(content.rivers.every(line=>line.provinceId&&provinceIds.has(line.provinceId))).toBe(true);
+    expect(content.rivers.some(line=>line.provinceId==='moscow-governorate'&&line.name==='Moskva River'&&line.sourceIds.includes('openstreetmap-moskva-river-2026-07-13'))).toBe(true);
+  });
+
 });

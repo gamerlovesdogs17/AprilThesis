@@ -340,6 +340,53 @@ export interface CampaignHistorySnapshot {
   regionHighlights: Array<{ regionId: string; foodSupply: number; unrest: number; influence: number }>;
 }
 
+export type SituationBoardCategory = 'crisis' | 'opportunity' | 'movement';
+export type CampaignObjectKind = 'province' | 'character' | 'institution' | 'event' | 'law' | 'operation' | 'newspaper';
+
+export interface CampaignObjectLink {
+  kind: CampaignObjectKind;
+  id: string;
+  provinceId?: string;
+  regionId?: string;
+}
+
+export interface SituationBoardItem {
+  id: string;
+  category: SituationBoardCategory;
+  priority: number;
+  title: string;
+  detail: string;
+  link: CampaignObjectLink;
+}
+
+export interface SituationBoardState {
+  schemaVersion: 1;
+  month: string;
+  generatedTurn: number;
+  dismissed: boolean;
+  pinnedItemId?: string;
+  items: SituationBoardItem[];
+}
+
+export type CampaignHistoryCategory = 'decision' | 'vote' | 'policy' | 'law' | 'security' | 'organizer' | 'strike' | 'famine' | 'character' | 'institution' | 'operation' | 'press';
+
+export interface CampaignHistoryEntry {
+  id: string;
+  date: string;
+  icon: string;
+  title: string;
+  category: CampaignHistoryCategory;
+  link: CampaignObjectLink;
+  relatedObjectIds: string[];
+  knownConsequences: string[];
+  historicalClassification: 'historical' | 'historically_plausible' | 'counterfactual';
+}
+
+export interface CampaignHistoryState {
+  schemaVersion: 1;
+  entries: CampaignHistoryEntry[];
+}
+
 export interface CampaignState {
   settings: CampaignSettings;
   currentDate: string;
@@ -385,6 +432,8 @@ export interface CampaignState {
   voteState: VoteState | null;
   flags: Record<string, boolean | number | string>;
   historySnapshots: CampaignHistorySnapshot[];
+  situationBoard: SituationBoardState;
+  campaignHistory: CampaignHistoryState;
 }
 
 export interface VoteState {
@@ -440,11 +489,12 @@ export interface UserPreferences {
   campaignsStarted: number;
   researchMode: boolean;
   allCityLabels: boolean;
+  situationBoardEnabled: boolean;
 }
 
-export const GAME_VERSION = '0.5.0';
-export const CONTENT_VERSION = '0.5.0';
-export const SAVE_VERSION = 5;
+export const GAME_VERSION = '0.6.0';
+export const CONTENT_VERSION = '0.6.0';
+export const SAVE_VERSION = 6;
 export const CAMPAIGN_START_DATE = '1921-03';
 export const CAMPAIGN_END_DATE = '1924-04';
 export const VERTICAL_SLICE_END = '1921-08';

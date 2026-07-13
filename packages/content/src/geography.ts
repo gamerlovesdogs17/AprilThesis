@@ -1,18 +1,27 @@
 import type { MapRegionGeometry } from '@april-thesis/map-engine';
 import context from './geography-context.json';
+import citiesGeoJson from '../map-data/cities-1921.geo.json';
+import riversGeoJson from '../map-data/rivers.geo.json';
+import railwaysGeoJson from '../map-data/railways-1921.geo.json';
 
-export const MAP_BOUNDS = { minLongitude: 18, maxLongitude: 180, minLatitude: 25, maxLatitude: 82, width: 1000, height: 560 } as const;
+export const MAP_BOUNDS = { minLongitude: 18, maxLongitude: 191, minLatitude: 25, maxLatitude: 82, width: 1000, height: 560 } as const;
 
 export type Coordinate = readonly [longitude: number, latitude: number];
 
 export interface HistoricalCity {
   id: string;
   name: string;
+  alternateNames: string[];
   modernName?: string;
+  provinceId: string;
+  strategicRegionId: string;
   regionId: string;
   longitude: number;
   latitude: number;
+  validFrom: string;
+  validUntil?: string;
   populationCategory: 'metropolis' | 'major' | 'regional' | 'local';
+  importanceTier: 'national' | 'republic' | 'regional' | 'provincial' | 'local';
   industrialImportance: number;
   railwayImportance: number;
   politicalImportance: number;
@@ -28,6 +37,11 @@ export interface GeographicLine {
   name: string;
   coordinates: Coordinate[];
   importance: number;
+  provinceId?: string;
+  routeId?: string;
+  validFrom: string;
+  sourceIds: string[];
+  historicalStatus?: string;
 }
 
 export interface GeographicContextFeature {
@@ -103,46 +117,54 @@ export const mapGeometries: MapRegionGeometry[] = strategicRegionPolygons.map(re
 
 export const geographicContext: GeographicContextFeature[] = context.features;
 
-export const cities: HistoricalCity[] = [
-  { id:'petrograd-city', name:'Petrograd', regionId:'petrograd', longitude:30.32, latitude:59.94, populationCategory:'metropolis', industrialImportance:95, railwayImportance:90, politicalImportance:100, labelPriority:1, nationalEssential:true, preferredLabelOffset:[7,-7], port:true },
-  { id:'moscow-city', name:'Moscow', regionId:'moscow', longitude:37.62, latitude:55.75, populationCategory:'metropolis', industrialImportance:90, railwayImportance:100, politicalImportance:100, labelPriority:1, nationalEssential:true, preferredLabelOffset:[7,10] },
-  { id:'minsk-city', name:'Minsk', regionId:'belarus', longitude:27.56, latitude:53.90, populationCategory:'major', industrialImportance:45, railwayImportance:80, politicalImportance:70, labelPriority:1 },
-  { id:'kiev-city', name:'Kiev', regionId:'central_ukraine', longitude:30.52, latitude:50.45, populationCategory:'major', industrialImportance:65, railwayImportance:85, politicalImportance:85, labelPriority:1, nationalEssential:true, preferredLabelOffset:[-28,-7] },
-  { id:'kharkov-city', name:'Kharkov', regionId:'central_ukraine', longitude:36.23, latitude:49.99, populationCategory:'major', industrialImportance:85, railwayImportance:90, politicalImportance:80, labelPriority:1 },
-  { id:'odessa-city', name:'Odessa', regionId:'central_ukraine', longitude:30.73, latitude:46.48, populationCategory:'major', industrialImportance:65, railwayImportance:70, politicalImportance:65, labelPriority:2, port:true },
-  { id:'rostov-city', name:'Rostov-on-Don', regionId:'don_basin', longitude:39.70, latitude:47.24, populationCategory:'major', industrialImportance:70, railwayImportance:90, politicalImportance:65, labelPriority:1, nationalEssential:true, preferredLabelOffset:[7,10] },
-  { id:'tsaritsyn-city', name:'Tsaritsyn', modernName:'Volgograd', regionId:'lower_volga', longitude:44.51, latitude:48.71, populationCategory:'regional', industrialImportance:65, railwayImportance:80, politicalImportance:60, labelPriority:1, nationalEssential:true, periodNote:'Name used until 1925.' },
-  { id:'saratov-city', name:'Saratov', regionId:'middle_volga', longitude:46.03, latitude:51.53, populationCategory:'major', industrialImportance:55, railwayImportance:75, politicalImportance:60, labelPriority:2 },
-  { id:'samara-city', name:'Samara', regionId:'middle_volga', longitude:50.10, latitude:53.20, populationCategory:'major', industrialImportance:60, railwayImportance:90, politicalImportance:65, labelPriority:1 },
-  { id:'kazan-city', name:'Kazan', regionId:'upper_volga', longitude:49.11, latitude:55.79, populationCategory:'major', industrialImportance:65, railwayImportance:75, politicalImportance:75, labelPriority:1, nationalEssential:true },
-  { id:'perm-city', name:'Perm', regionId:'urals', longitude:56.23, latitude:58.01, populationCategory:'major', industrialImportance:80, railwayImportance:85, politicalImportance:55, labelPriority:2 },
-  { id:'ekaterinburg-city', name:'Ekaterinburg', modernName:'Yekaterinburg', regionId:'urals', longitude:60.60, latitude:56.84, populationCategory:'major', industrialImportance:85, railwayImportance:90, politicalImportance:70, labelPriority:1, periodNote:'Renamed Sverdlovsk in 1924.' },
-  { id:'omsk-city', name:'Omsk', regionId:'western_siberia', longitude:73.37, latitude:54.99, populationCategory:'major', industrialImportance:55, railwayImportance:95, politicalImportance:70, labelPriority:1, nationalEssential:true },
-  { id:'novonikolayevsk-city', name:'Novo-Nikolayevsk', modernName:'Novosibirsk', regionId:'western_siberia', longitude:82.92, latitude:55.03, populationCategory:'major', industrialImportance:55, railwayImportance:100, politicalImportance:60, labelPriority:1, periodNote:'Renamed Novosibirsk in 1926.' },
-  { id:'irkutsk-city', name:'Irkutsk', regionId:'central_siberia', longitude:104.28, latitude:52.29, populationCategory:'major', industrialImportance:50, railwayImportance:90, politicalImportance:60, labelPriority:1 },
-  { id:'vladivostok-city', name:'Vladivostok', regionId:'far_east', longitude:131.89, latitude:43.12, populationCategory:'major', industrialImportance:50, railwayImportance:95, politicalImportance:85, labelPriority:1, nationalEssential:true, port:true },
-  { id:'tashkent-city', name:'Tashkent', regionId:'turkestan', longitude:69.24, latitude:41.30, populationCategory:'major', industrialImportance:55, railwayImportance:85, politicalImportance:80, labelPriority:1, nationalEssential:true },
-  { id:'baku-city', name:'Baku', regionId:'azerbaijan', longitude:49.87, latitude:40.41, populationCategory:'major', industrialImportance:100, railwayImportance:75, politicalImportance:85, labelPriority:1, nationalEssential:true, port:true },
-  { id:'tiflis-city', name:'Tiflis', modernName:'Tbilisi', regionId:'georgia', longitude:44.79, latitude:41.72, populationCategory:'major', industrialImportance:55, railwayImportance:80, politicalImportance:85, labelPriority:1, periodNote:'Contemporary English and Russian usage; Georgian name Tbilisi.' },
-  { id:'yerevan-city', name:'Yerevan', regionId:'armenia', longitude:44.51, latitude:40.18, populationCategory:'regional', industrialImportance:35, railwayImportance:55, politicalImportance:75, labelPriority:2 },
-];
+interface GeneratedFeatureCollection<P,G> {
+  type:'FeatureCollection';
+  features:Array<{type:'Feature';properties:P;geometry:G}>;
+}
 
-export const rivers: GeographicLine[] = [
-  { id:'volga', name:'Volga', importance:1, coordinates:[[32.5,57],[38,56],[44,56],[49,55.8],[47,52],[46,48],[47.5,45.7]] },
-  { id:'don', name:'Don', importance:2, coordinates:[[39,54],[41,51],[40,48],[39.5,47],[39,46.5]] },
-  { id:'dnieper', name:'Dnieper', importance:1, coordinates:[[32,54],[31,51],[32,49],[33,47],[33.5,46]] },
-  { id:'ural-river', name:'Ural', importance:2, coordinates:[[59,57],[57,53],[54,50],[52,47],[51.5,46]] },
-  { id:'ob', name:'Ob', importance:1, coordinates:[[85,51],[82,55],[80,60],[75,66]] },
-  { id:'yenisei', name:'Yenisei', importance:1, coordinates:[[92,51],[91,57],[89,63],[86,70]] },
-];
+type GeneratedCityProperties = Omit<HistoricalCity,'regionId'|'modernName'|'preferredLabelOffset'>;
+type GeneratedLineProperties = Omit<GeographicLine,'coordinates'>;
+interface GeneratedLineGeometry { type:'LineString';coordinates:number[][] }
 
-export const railways: GeographicLine[] = [
-  { id:'trans-siberian', name:'Trans-Siberian Railway', importance:1, coordinates:[[30.3,59.9],[37.6,55.8],[49.1,55.8],[60.6,56.8],[73.4,55],[82.9,55],[104.3,52.3],[131.9,43.1]] },
-  { id:'moscow-south', name:'Moscow-Southern Railway', importance:1, coordinates:[[37.6,55.8],[37.6,54],[36.2,50],[39.7,47.2],[44.5,48.7]] },
-  { id:'ukraine-main', name:'Southwestern Railway', importance:2, coordinates:[[27.6,53.9],[30.5,50.5],[36.2,50],[30.7,46.5]] },
-  { id:'caucasus-line', name:'Caucasus Railway', importance:2, coordinates:[[39.7,47.2],[40,44.5],[44.8,41.7],[49.9,40.4]] },
-  { id:'turkestan-line', name:'Turkestan-Siberian connections', importance:2, coordinates:[[50.1,53.2],[61,51],[69.2,41.3]] },
-];
+const generatedCities=(citiesGeoJson as unknown as GeneratedFeatureCollection<GeneratedCityProperties,{type:'Point';coordinates:number[]}>).features;
+const generatedRivers=(riversGeoJson as unknown as GeneratedFeatureCollection<GeneratedLineProperties,GeneratedLineGeometry>).features;
+const generatedRailways=(railwaysGeoJson as unknown as GeneratedFeatureCollection<GeneratedLineProperties,GeneratedLineGeometry>).features;
+
+const modernCityNames:Record<string,string> = {
+  'petrograd-city':'Saint Petersburg',
+  'kiev-city':'Kyiv',
+  'kharkov-city':'Kharkiv',
+  'odessa-city':'Odesa',
+  'tsaritsyn-city':'Volgograd',
+  'ekaterinburg-city':'Yekaterinburg',
+  'novonikolayevsk-city':'Novosibirsk',
+  'tiflis-city':'Tbilisi',
+  'ekaterinoslav-city':'Dnipro',
+};
+
+const preferredCityOffsets:Record<string,readonly [number,number]> = {
+  'petrograd-city':[7,-7],
+  'moscow-city':[7,10],
+  'kiev-city':[-28,-7],
+  'rostov-city':[7,10],
+};
+
+export const cities:HistoricalCity[]=generatedCities.map(({properties})=>({
+  ...properties,
+  regionId:properties.strategicRegionId,
+  modernName:modernCityNames[properties.id],
+  preferredLabelOffset:preferredCityOffsets[properties.id],
+}));
+
+function generatedLines(features:Array<{properties:GeneratedLineProperties;geometry:GeneratedLineGeometry}>):GeographicLine[]{
+  return features.map(({properties,geometry})=>({
+    ...properties,
+    coordinates:geometry.coordinates.map(([longitude,latitude])=>[longitude,latitude] as Coordinate),
+  }));
+}
+
+export const rivers:GeographicLine[]=generatedLines(generatedRivers);
+export const railways:GeographicLine[]=generatedLines(generatedRailways);
 
 export const seas = [
   { id:'baltic', name:'Baltic Sea', x:projectCoordinate([22,61])[0], y:projectCoordinate([22,61])[1] },

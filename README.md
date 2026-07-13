@@ -1,6 +1,12 @@
 # APRIL THESIS
 
-**The Revolution After Victory** is a local-first political strategy game about the Workers' Opposition in Soviet Russia. The playable chapter remains March–August 1921. Phase Four improves how players learn, navigate, and read the existing simulation; it does not rebalance Phase Two or add a later chapter.
+## Phase Six current state
+
+The playable chapter remains March-August 1921. Phase Six replaces the former generalized province boxes with a reproducible historical-GIS atlas and adds strategic presentation without rebalancing the political simulation. The map now ships 96 dated reconstruction rules, 93 active March provinces, 646 uyezds, 14 formal governments, province-derived dissolves for the 28 stable simulation aggregates, source-backed local transport, theater navigation, influence contours, a monthly Situation Board, and compact Campaign History.
+
+Save version 6 migrates earlier campaigns additively. Map geometry is never stored in saves. The clean 48-scenario Playwright pass is complete; the human March-August playthrough remains the sole Phase Six completion gate. See `docs/PHASE_SIX_REVIEW.md`.
+
+**The Revolution After Victory** is a local-first political strategy game about the Workers' Opposition in Soviet Russia. The playable chapter remains March–August 1921. The earlier Phase Four presentation work remains intact beneath the Phase Six cartographic replacement; neither phase rebalances the simulation or adds a later chapter.
 
 ## Run and verify
 
@@ -29,7 +35,7 @@ The static production build is written to `apps/web/dist`. The game has no backe
 
 ## Saves and compatibility
 
-Save version 4 adds tutorial pause/progress and hint-dismissal fields. Earlier envelopes are migrated additively; content IDs, campaign seed state, political calculations, and the March–August date range are unchanged. An active local session also restores the selected region, character, map mode, command group, sidebar state, and tutorial progress after a reload; map zoom/pan is kept in session storage.
+Save version 6 adds Situation Board and Campaign History presentation state on top of the earlier tutorial fields. Earlier envelopes are migrated additively; content IDs, campaign seed state, political calculations, and the March–August date range are unchanged. An active local session also restores the selected region, character, map mode, command group, sidebar state, and tutorial progress after a reload; map zoom/pan is kept in session storage.
 
 ## Assets and historical honesty
 

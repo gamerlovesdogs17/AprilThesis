@@ -2,6 +2,7 @@ import type { SaveEnvelope, CampaignState } from '@april-thesis/shared-types';
 import { SAVE_VERSION, GAME_VERSION, CONTENT_VERSION } from '@april-thesis/shared-types';
 import { initializePoliticalSystems } from './politics';
 import { captureCampaignSnapshot } from './history';
+import { buildSituationBoard, emptyCampaignHistory } from './presentation';
 
 export function computeChecksum(data: string): string {
   let hash = 0;
@@ -66,6 +67,8 @@ export function migrateSave(envelope: SaveEnvelope): SaveEnvelope {
   campaign.institutionHistory ??= [];
   campaign.characterCommunications ??= [];
   campaign.historySnapshots ??= [captureCampaignSnapshot(campaign)];
+  campaign.campaignHistory ??= emptyCampaignHistory();
+  campaign.situationBoard ??= buildSituationBoard(campaign);
   campaign.tutorialStep ??= campaign.settings.tutorialEnabled ? 0 : -1;
   campaign.tutorialComplete ??= !campaign.settings.tutorialEnabled;
   campaign.tutorialPaused ??= false;

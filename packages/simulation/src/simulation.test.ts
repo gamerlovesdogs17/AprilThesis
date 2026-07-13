@@ -7,6 +7,7 @@ import { advanceMonth, applyEffects, evaluateEndings, resolveOperations } from '
 import { createSaveEnvelope, migrateSave, validateSaveEnvelope } from './save';
 import { appendCampaignSnapshot, deriveNationalChartSeries } from './history';
 import { beginPolicyCampaign, campaignForProposal, isEventChoiceEligible, lobbyDelegate, performFactionAction, resolveVote, runPoliticalMonth } from './politics';
+import { appendCampaignHistoryEntry, appendMonthlyCampaignHistory, buildSituationBoard, historyEntry } from './presentation';
 
 const settings: CampaignSettings = {
   simulationMode: 'plausible', difficulty: 'standard', background: 'trade_union_organizer',
@@ -51,9 +52,40 @@ describe('deterministic simulation', () => {
     delete (envelope.campaign as Partial<typeof envelope.campaign>).historySnapshots;
     delete envelope.checksum;
     const migrated = migrateSave(envelope);
-    expect(migrated.saveVersion).toBe(5);
+    expect(migrated.saveVersion).toBe(6);
     expect(migrated.campaign.historySnapshots).toHaveLength(1);
     expect(migrated.campaign.currentDate).toBe('1921-03');
+  });
+
+  it('migrates Phase Five saves with additive Situation Board and Campaign History fields', () => {
+    const envelope=createSaveEnvelope(campaign(),'Phase Five');envelope.saveVersion=5;
+    delete (envelope.campaign as Partial<typeof envelope.campaign>).situationBoard;
+    delete (envelope.campaign as Partial<typeof envelope.campaign>).campaignHistory;
+    delete envelope.checksum;
+    const migrated=migrateSave(envelope);
+    expect(migrated.saveVersion).toBe(6);
+    expect(migrated.campaign.situationBoard.schemaVersion).toBe(1);
+    expect(migrated.campaign.situationBoard.items.length).toBeGreaterThanOrEqual(9);
+    expect(migrated.campaign.campaignHistory).toEqual({schemaVersion:1,entries:[]});
+  });
+
+  it('selects Situation Board items from live values and records compact campaign links', () => {
+    const state=campaign();state.regions.tambov.famineSeverity=99;state.regions.petrograd.tradeUnionOrganization=98;
+    const board=buildSituationBoard(state);
+    expect(board.items.filter(item=>item.category==='crisis')).toHaveLength(3);
+    expect(board.items.some(item=>item.title.includes('Tambov')&&item.link.kind==='province')).toBe(true);
+    expect(board.items.every(item=>Boolean(item.link.id))).toBe(true);
+    let withEntry=appendCampaignHistoryEntry(state,historyEntry({idSuffix:'test',date:state.currentDate,icon:'decision',title:'Recorded decision',category:'decision',link:{kind:'event',id:'test-event'},relatedObjectIds:['test-event'],knownConsequences:['Worker support changed.'],historicalClassification:'counterfactual'}));
+    withEntry=appendCampaignHistoryEntry(withEntry,withEntry.campaignHistory.entries[0]);
+    expect(withEntry.campaignHistory.entries).toHaveLength(1);
+  });
+
+  it('creates month history references without duplicating campaign state', () => {
+    const previous=campaign();const next=structuredClone(previous);next.currentDate='1921-04';next.turnNumber=2;next.regions.tambov.famineSeverity+=8;next.activeOperations=[];
+    previous.activeOperations.push({id:'op-month',regionId:'tambov',operationId:'send_organizer',turnsRemaining:1,startedTurn:1});
+    const recorded=appendMonthlyCampaignHistory(previous,next,['op-month']);
+    expect(recorded.campaignHistory.entries.some(entry=>entry.category==='operation')).toBe(true);
+    expect(JSON.stringify(recorded.campaignHistory.entries)).not.toContain('nationalStats');
   });
 
   it('migrates and preserves persisted tutorial progress', () => {

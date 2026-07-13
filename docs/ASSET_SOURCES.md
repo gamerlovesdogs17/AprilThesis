@@ -5,6 +5,8 @@ The sole machine-readable manifest is `apps/web/public/assets/assets-manifest.js
 | Group | Origin | Status |
 | --- | --- | --- |
 | Natural Earth context | Natural Earth 1:110m countries | Public domain |
+| Historical GIS | IISH/RiStat 1897 provinces and districts | CC0 with requested citation; committed derivatives |
+| Rivers | Natural Earth 1:50m plus dated OSM relation 389341 supplement | Public domain plus ODbL 1.0 |
 | Congress hall | Original project-directed generated reconstruction | Labeled artistic reconstruction |
 | Ambience, effects, interface cues | `scripts/generate-audio-assets.mjs` | Original deterministic PCM synthesis |
 | Seven music tracks | `scripts/generate-audio-assets.mjs` | Original deterministic instrumental score |
@@ -29,6 +31,12 @@ The exact publication month of the English IWW edition has not been established.
 node scripts/build-map-context.mjs
 node scripts/generate-audio-assets.mjs
 node scripts/fetch-historical-portraits.mjs
+python scripts/map/download_sources.py
+python scripts/map/reconstruct_1921_districts.py
+python scripts/map/reconstruct_1921_provinces.py
+python scripts/map/build_transport_layers.py
+python scripts/map/validate_geometry.py
+python scripts/map/export_web_assets.py
 npm run validate:assets
 ```
 

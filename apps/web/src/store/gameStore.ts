@@ -30,6 +30,12 @@ import {
   isEventChoiceEligible,
   getOperationEligibility,
   appendCampaignSnapshot,
+  appendCampaignHistoryEntry,
+  appendMonthlyCampaignHistory,
+  buildSituationBoard,
+  emptyCampaignHistory,
+  historyEntry,
+  REGION_PROVINCE_LINKS,
   type ContentBundle,
   type SaveSlot,
   type FactionActionId,
@@ -50,6 +56,8 @@ interface GameStore {
   campaign: CampaignState | null;
   content: ReturnType<typeof getContentBundle>;
   selectedRegionId: string | null;
+  selectedProvinceId: string | null;
+  mapView: 'national' | 'province';
   selectedCharacterId: string | null;
   mapMode: MapMode;
   leftSidebarCollapsed: boolean;
@@ -73,6 +81,8 @@ interface GameStore {
   setPhase: (phase: TurnPhase) => void;
   advancePhase: () => void;
   selectRegion: (id: string | null) => void;
+  selectProvince: (id: string | null) => void;
+  setMapView: (view: 'national' | 'province') => void;
   selectCharacter: (id: string | null) => void;
   setMapMode: (mode: MapMode) => void;
   toggleLeftSidebar: () => void;
@@ -103,6 +113,8 @@ interface GameStore {
   endTurn: () => void;
   triggerEvent: (eventId: string) => void;
   dismissTurnSummary: () => void;
+  dismissSituationBoard: () => void;
+  pinSituationBoardItem: (itemId: string | null) => void;
   setAudioEnabled: (enabled: boolean) => void;
 }
 
@@ -125,6 +137,7 @@ const defaultPrefs: UserPreferences = {
   campaignsStarted: 0,
   researchMode: false,
   allCityLabels: false,
+  situationBoardEnabled: true,
   ...loadPreferences() as Partial<UserPreferences>,
 };
 
@@ -140,6 +153,7 @@ interface ActiveSession {
   campaign: CampaignState;
   wasActive: boolean;
   selectedRegionId: string | null;
+  selectedProvinceId?: string | null;
   selectedCharacterId: string | null;
   mapMode: MapMode;
   bottomGroup: string;
@@ -159,6 +173,8 @@ function loadActiveSession(): ActiveSession | null {
     session.campaign.tutorialEndPanelDismissed ??= false;
     session.campaign.settings.tutorialMode ??= session.campaign.settings.tutorialEnabled ? 'guided_opening' : 'none';
     session.campaign.dismissedHintIds ??= [];
+    session.campaign.campaignHistory ??= emptyCampaignHistory();
+    session.campaign.situationBoard ??= buildSituationBoard(session.campaign);
     return session;
   } catch {
     return null;
@@ -199,6 +215,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   campaign: activeSession?.campaign ?? null,
   content: getContentBundle(),
   selectedRegionId: activeSession?.selectedRegionId ?? null,
+  selectedProvinceId: activeSession?.selectedProvinceId ?? null,
+  mapView: 'national',
   selectedCharacterId: activeSession?.selectedCharacterId ?? null,
   mapMode: activeSession?.mapMode ?? 'political_influence',
   leftSidebarCollapsed: activeSession?.leftSidebarCollapsed ?? false,
@@ -256,7 +274,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     campaign = processPendingEvent(campaign);
     const preferences = { ...get().preferences, campaignsStarted:get().preferences.campaignsStarted + 1 };
     savePreferences(preferences as unknown as Record<string, unknown>);
-    set({ campaign, preferences, screen:'game', overlayScreen:null, selectedRegionId:null, selectedCharacterId:null, bottomGroup:'situation', bottomTab:'economy', campaignDirty:true });
+    set({ campaign, preferences, screen:'game', overlayScreen:null, selectedRegionId:null, selectedProvinceId:null, mapView:'national', selectedCharacterId:null, bottomGroup:'situation', bottomTab:'economy', campaignDirty:true });
   },
 
   startGuidedTutorial: () => {
@@ -283,7 +301,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     envelope.campaign.tutorialEndPanelDismissed ??= false;
     envelope.campaign.settings.tutorialMode ??= envelope.campaign.settings.tutorialEnabled ? 'guided_opening' : 'none';
     envelope.campaign.dismissedHintIds ??= [];
-    set({ campaign:envelope.campaign, screen:'game', overlayScreen:null, campaignDirty:false });
+    set({ campaign:envelope.campaign, screen:'game', overlayScreen:null, selectedProvinceId:null, mapView:'national', campaignDirty:false });
   },
 
   setPhase: (phase) => {
@@ -311,7 +329,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ campaign: next, campaignDirty:true });
   },
 
-  selectRegion: (id) => set({ selectedRegionId: id, selectedCharacterId: null }),
+  selectRegion: (id) => set({ selectedRegionId:id, selectedProvinceId:null, selectedCharacterId:null }),
+  selectProvince: (id) => {
+    const province=get().content.historicalProvinces.find(item=>item.id===id);
+    set({selectedProvinceId:id,selectedRegionId:province?.strategicRegionId??null,selectedCharacterId:null});
+  },
+  setMapView: (view) => set({mapView:view}),
   selectCharacter: (id) => {
     const campaign=get().campaign;
     set({ selectedCharacterId:id, selectedRegionId:null, ...(campaign&&id?{campaign:addTutorialMilestone(campaign,'character-opened'),campaignDirty:true}:{}) });
@@ -428,6 +451,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     next = addTutorialMilestone(next,'event-resolved');
     next.pendingEventIds = next.pendingEventIds.filter(id => id !== eventId);
     next.currentEventId = null;
+    next=appendCampaignHistoryEntry(next,historyEntry({
+      idSuffix:`event-${eventId}-${choiceId}`,
+      date:next.currentDate,
+      icon:'decision',
+      title:`${event.title}: ${choice.text}`,
+      category:'decision',
+      link:{kind:'event',id:eventId},
+      relatedObjectIds:[eventId,choiceId],
+      knownConsequences:Object.entries(choice.effects??{}).map(([key,value])=>`${key} ${Number(value)>0?'+':''}${String(value)}`),
+      historicalClassification:'counterfactual',
+    }));
 
     if (choice.nextEventId) {
       next.pendingEventIds.push(choice.nextEventId);
@@ -466,6 +500,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
         suppressed: counterPublicationId === 'wo_circular' && next.resources.exposure > 65,
         contradictsArticleId: primaryId, template: counterPublicationId === 'pravda' ? 'official' : 'factional',
       });
+      next=appendCampaignHistoryEntry(next,historyEntry({
+        idSuffix:`press-${primaryId}`,
+        date:next.currentDate,
+        icon:'press',
+        title:`Press coverage: ${event.title}`,
+        category:'press',
+        link:{kind:'newspaper',id:primaryId},
+        relatedObjectIds:[primaryId,eventId],
+        knownConsequences:[`Published by ${publication?.name??publicationId}; a counter-account was also recorded.`],
+        historicalClassification:'historically_plausible',
+      }));
       set({ pendingNewspaper: { headline: event.title, publication: 'pravda' } });
     }
 
@@ -491,7 +536,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const eligibility = getOperationEligibility(campaign, opDef, regionId, organizerId);
     if (!eligibility.eligible) return;
 
-    const next = structuredClone(campaign);
+    let next = structuredClone(campaign);
     if (next.activeOperations.filter(op => op.startedTurn === next.turnNumber).length >= 2) return;
     for (const [key, value] of Object.entries(opDef.cost)) {
       if (key in next.resources && typeof value === 'number') {
@@ -517,6 +562,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       next.organizerAssignments[organizerId] = regionId;
     }
 
+    next=appendCampaignHistoryEntry(next,historyEntry({
+      idSuffix:`operation-start-${next.activeOperations.at(-1)!.id}`,
+      date:next.currentDate,
+      icon:'operation',
+      title:`${opDef.name} opened in ${regionId.replaceAll('_',' ')}`,
+      category:'operation',
+      link:{kind:'operation',id:operationId,provinceId:REGION_PROVINCE_LINKS[regionId],regionId},
+      relatedObjectIds:[operationId,regionId,...(organizerId?[organizerId]:[])],
+      knownConsequences:[`Duration ${opDef.duration} turn(s); success estimate ${eligibility.successChance}%; detection estimate ${eligibility.detectionChance}%.`],
+      historicalClassification:'counterfactual',
+    }));
+
     set({ campaign:addTutorialMilestone(next,'operation-started'), campaignDirty:true });
   },
 
@@ -534,12 +591,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   resolvePoliticalVote: () => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: resolveVote(campaign), campaignDirty:true });
+    let next=resolveVote(campaign);const vote=next.voteState;
+    if(vote?.resolved)next=appendCampaignHistoryEntry(next,historyEntry({idSuffix:`vote-${vote.id}`,date:next.currentDate,icon:'vote',title:`${vote.title}: ${vote.passed?'passed':'failed'}`,category:'vote',link:{kind:'law',id:next.policyProposals[vote.proposalId]?.lawId??vote.proposalId},relatedObjectIds:[vote.id,vote.proposalId],knownConsequences:[vote.tally?`For ${vote.tally.for}; against ${vote.tally.against}; abstain ${vote.tally.abstain}.`:'Vote resolved.'],historicalClassification:'counterfactual'}));
+    set({ campaign:next, campaignDirty:true });
   },
 
   beginPolicyCampaign: (proposalId) => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: beginPolicyCampaign(campaign, proposalId), campaignDirty:true });
+    let next=beginPolicyCampaign(campaign,proposalId);const proposal=next.policyProposals[proposalId];
+    if(next!==campaign&&proposal)next=appendCampaignHistoryEntry(next,historyEntry({idSuffix:`proposal-${proposalId}`,date:next.currentDate,icon:'policy',title:`Proposal introduced: ${proposal.title}`,category:'policy',link:{kind:'law',id:proposal.lawId},relatedObjectIds:[proposalId,proposal.lawId,proposal.institutionId],knownConsequences:[`Support ${Math.round(proposal.support)}; opposition ${Math.round(proposal.opposition)}.`],historicalClassification:'counterfactual'}));
+    set({campaign:next,campaignDirty:true});
   },
 
   campaignForProposal: (proposalId) => {
@@ -549,7 +610,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   approachInstitution: (institutionId) => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: influenceInstitution(campaign, institutionId), campaignDirty:true });
+    let next=influenceInstitution(campaign,institutionId);const institution=next.institutions[institutionId];
+    if(next!==campaign&&institution)next=appendCampaignHistoryEntry(next,historyEntry({idSuffix:`institution-${institutionId}-${next.turnNumber}-${institution.playerContacts}`,date:next.currentDate,icon:'institution',title:institution.lastAction,category:'institution',link:{kind:'institution',id:institutionId},relatedObjectIds:[institutionId],knownConsequences:[`Contacts ${Math.round(institution.playerContacts)}; attitude ${Math.round(institution.attitude)}.`],historicalClassification:'counterfactual'}));
+    set({campaign:next,campaignDirty:true});
   },
 
   updatePreferences: (prefs) => {
@@ -593,6 +656,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     next = appendCampaignSnapshot(next);
     next = queueMonthEvents(next, content.events);
     next = processPendingEvent(next);
+    next = appendMonthlyCampaignHistory(campaign,next,completed);
+    next.situationBoard = buildSituationBoard(next,campaign);
 
     const headlines = completed.length > 0
       ? [`${completed.length} operation(s) completed`]
@@ -623,6 +688,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const campaign=get().campaign;
     set({ turnSummary:null, pendingNewspaper:null, ...(campaign?{campaign:addTutorialMilestone(campaign,'monthly-consequences-reviewed')}:{}) });
   },
+  dismissSituationBoard: () => {
+    const campaign=get().campaign;if(!campaign)return;
+    set({campaign:{...campaign,situationBoard:{...campaign.situationBoard,dismissed:true}},campaignDirty:true});
+  },
+  pinSituationBoardItem: (itemId) => {
+    const campaign=get().campaign;if(!campaign)return;
+    const previous=campaign.situationBoard.items.find(item=>item.id===campaign.situationBoard.pinnedItemId);
+    const selected=campaign.situationBoard.items.find(item=>item.id===itemId);
+    const objectives=campaign.objectives.filter(objective=>!previous||objective!==`Pinned: ${previous.title}`);
+    if(selected)objectives.push(`Pinned: ${selected.title}`);
+    set({campaign:{...campaign,objectives,situationBoard:{...campaign.situationBoard,pinnedItemId:selected?.id}},campaignDirty:true});
+  },
   setAudioEnabled: (enabled) => set({ audioEnabled: enabled }),
 }));
 
@@ -636,6 +713,7 @@ if (typeof window !== 'undefined') {
       campaign:state.campaign,
       wasActive:state.screen === 'game',
       selectedRegionId:state.selectedRegionId,
+      selectedProvinceId:state.selectedProvinceId,
       selectedCharacterId:state.selectedCharacterId,
       mapMode:state.mapMode,
       bottomGroup:state.bottomGroup,

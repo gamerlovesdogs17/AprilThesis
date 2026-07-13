@@ -40,6 +40,19 @@ export interface CityLabelLayout extends CityLabelCandidate {
   selectedPriority: boolean;
 }
 
+export interface CityLabelLayoutOptions {
+  zoom: number;
+  panX?: number;
+  panY?: number;
+  viewportWidth?: number;
+  viewportHeight?: number;
+  selectedRegionId?: string | null;
+  neighborIds?: Iterable<string>;
+  allLabels?: boolean;
+  maxLabels?: number;
+  measureText?: (text: string) => number;
+}
+
 export function getMapZoomTier(zoom: number, selectedRegionId?: string | null): MapZoomTier {
   if (selectedRegionId && zoom >= 2) return 'province';
   if (zoom >= 1.3) return 'regional';
@@ -52,7 +65,7 @@ function boxesOverlap(a: {x:number;y:number;width:number;height:number}, b: {x:n
 
 export function layoutCityLabels(
   candidates: CityLabelCandidate[],
-  options: { zoom:number; selectedRegionId?:string|null; neighborIds?:Iterable<string>; allLabels?:boolean },
+  options: CityLabelLayoutOptions,
 ): CityLabelLayout[] {
   const tier = getMapZoomTier(options.zoom, options.selectedRegionId);
   const neighbors = new Set(options.neighborIds ?? []);
@@ -73,12 +86,127 @@ export function layoutCityLabels(
   for (const city of ordered) {
     const [dx,dy] = city.preferredOffset ?? [7,-5];
     const labelX = city.x + dx; const labelY = city.y + dy;
-    const box = { x:labelX-2, y:labelY-8, width:Math.max(18,city.name.length*4.4+5), height:10 };
-    if (options.allLabels || !occupied.some(other => boxesOverlap(box,other))) { visible.add(city.id); occupied.push(box); }
+    const screenZoom=Math.max(.01,options.zoom);
+    const screenX=labelX*screenZoom+(options.panX??0);
+    const screenY=labelY*screenZoom+(options.panY??0);
+    const measuredWidth=options.measureText?.(city.name) ?? Math.max(18,city.name.length*4.4+5);
+    const box = { x:screenX-2*screenZoom, y:screenY-8*screenZoom, width:Math.max(18,measuredWidth)*screenZoom, height:10*screenZoom };
+    const insideViewport=(options.viewportWidth===undefined||box.x+box.width>=0&&box.x<=options.viewportWidth)
+      &&(options.viewportHeight===undefined||box.y+box.height>=0&&box.y<=options.viewportHeight);
+    const belowLimit=options.allLabels||visible.size<(options.maxLabels??Number.POSITIVE_INFINITY);
+    if (insideViewport&&belowLimit&&(options.allLabels || !occupied.some(other => boxesOverlap(box,other)))) { visible.add(city.id); occupied.push(box); }
     positions.set(city.id,{x:labelX,y:labelY});
   }
   const eligibleIds = new Set(eligible.map(city => city.id));
   return candidates.map(city => ({ ...city, dotVisible:eligibleIds.has(city.id), labelVisible:visible.has(city.id), labelX:positions.get(city.id)?.x ?? city.x+7, labelY:positions.get(city.id)?.y ?? city.y-5, selectedPriority:city.regionId === options.selectedRegionId }));
+}
+
+export interface InfluenceContourBand {
+  faction: string;
+  threshold: number;
+  path: string;
+}
+
+type GridPoint = readonly [number,number];
+
+function interpolatePoint(a:GridPoint,b:GridPoint,aValue:number,bValue:number,threshold:number):GridPoint {
+  const denominator=bValue-aValue;
+  const t=Math.max(0,Math.min(1,Math.abs(denominator)<1e-9?.5:(threshold-aValue)/denominator));
+  return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+}
+
+function polygonPath(points:GridPoint[],scaleX:number,scaleY:number):string {
+  if(points.length<3)return '';
+  return points.map(([x,y],index)=>`${index?'L':'M'}${(x*scaleX).toFixed(2)},${(y*scaleY).toFixed(2)}`).join('')+'Z';
+}
+
+/**
+ * Convert a scalar grid into a filled threshold band with marching squares.
+ * Ambiguous saddle cells use their center value to choose connectivity.
+ */
+export function generateContourBandPath(
+  field:Float32Array,
+  gridWidth:number,
+  gridHeight:number,
+  mapWidth:number,
+  mapHeight:number,
+  threshold:number,
+):string {
+  if(field.length!==gridWidth*gridHeight||gridWidth<2||gridHeight<2)return '';
+  const scaleX=mapWidth/(gridWidth-1),scaleY=mapHeight/(gridHeight-1);
+  const paths:string[]=[];
+  for(let y=0;y<gridHeight-1;y++)for(let x=0;x<gridWidth-1;x++){
+    const aValue=field[y*gridWidth+x];
+    const bValue=field[y*gridWidth+x+1];
+    const cValue=field[(y+1)*gridWidth+x+1];
+    const dValue=field[(y+1)*gridWidth+x];
+    const a:[number,number]=[x,y],b:[number,number]=[x+1,y],c:[number,number]=[x+1,y+1],d:[number,number]=[x,y+1];
+    const top=interpolatePoint(a,b,aValue,bValue,threshold);
+    const right=interpolatePoint(b,c,bValue,cValue,threshold);
+    const bottom=interpolatePoint(d,c,dValue,cValue,threshold);
+    const left=interpolatePoint(a,d,aValue,dValue,threshold);
+    const mask=(aValue>=threshold?1:0)|(bValue>=threshold?2:0)|(cValue>=threshold?4:0)|(dValue>=threshold?8:0);
+    const center=(aValue+bValue+cValue+dValue)/4;
+    let polygons:GridPoint[][]=[];
+    switch(mask){
+      case 1:polygons=[[a,top,left]];break;
+      case 2:polygons=[[b,right,top]];break;
+      case 3:polygons=[[a,b,right,left]];break;
+      case 4:polygons=[[c,bottom,right]];break;
+      case 5:polygons=center>=threshold?[[a,top,right,c,bottom,left]]:[[a,top,left],[c,bottom,right]];break;
+      case 6:polygons=[[b,c,bottom,top]];break;
+      case 7:polygons=[[a,b,c,bottom,left]];break;
+      case 8:polygons=[[d,left,bottom]];break;
+      case 9:polygons=[[a,top,bottom,d]];break;
+      case 10:polygons=center>=threshold?[[b,right,bottom,d,left,top]]:[[b,right,top],[d,left,bottom]];break;
+      case 11:polygons=[[a,b,right,bottom,d]];break;
+      case 12:polygons=[[d,c,right,left]];break;
+      case 13:polygons=[[a,top,right,c,d]];break;
+      case 14:polygons=[[top,b,c,d,left]];break;
+      case 15:polygons=[[a,b,c,d]];break;
+    }
+    for(const polygon of polygons)paths.push(polygonPath(polygon,scaleX,scaleY));
+  }
+  return paths.join('');
+}
+
+export function buildInfluenceContourBands(
+  nodes:InfluenceNode[],
+  faction:string,
+  mapWidth:number,
+  mapHeight:number,
+  thresholds:readonly number[]=[35,55,72],
+  gridWidth=58,
+  gridHeight=34,
+):InfluenceContourBand[] {
+  const gridNodes=nodes.map(node=>({...node,x:node.x/mapWidth*(gridWidth-1),y:node.y/mapHeight*(gridHeight-1)}));
+  const field=computeInfluenceField(gridNodes,gridWidth,gridHeight,faction);
+  return thresholds.map(threshold=>({
+    faction,
+    threshold,
+    path:generateContourBandPath(field,gridWidth,gridHeight,mapWidth,mapHeight,threshold),
+  }));
+}
+
+export function buildContestedZonePath(
+  nodes:InfluenceNode[],
+  factions:readonly string[],
+  mapWidth:number,
+  mapHeight:number,
+  maximumGap=10,
+  minimumStrength=25,
+  gridWidth=58,
+  gridHeight=34,
+):string {
+  if(factions.length<2)return '';
+  const gridNodes=nodes.map(node=>({...node,x:node.x/mapWidth*(gridWidth-1),y:node.y/mapHeight*(gridHeight-1)}));
+  const fields=factions.map(faction=>computeInfluenceField(gridNodes,gridWidth,gridHeight,faction));
+  const mask=new Float32Array(gridWidth*gridHeight);
+  for(let index=0;index<mask.length;index++){
+    const ordered=fields.map(field=>field[index]).sort((a,b)=>b-a);
+    mask[index]=ordered[0]>=minimumStrength&&ordered[0]-ordered[1]<=maximumGap?1:0;
+  }
+  return generateContourBandPath(mask,gridWidth,gridHeight,mapWidth,mapHeight,.5);
 }
 
 export interface ContourLine {

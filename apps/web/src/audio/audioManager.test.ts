@@ -21,6 +21,7 @@ const preferences: UserPreferences = {
   campaignsStarted: 1,
   researchMode: false,
   allCityLabels: false,
+  situationBoardEnabled: true,
 };
 
 class FakeAudio {

@@ -3,6 +3,9 @@
 ## Distributed data and images
 
 - Natural Earth 1:110m country context: public domain.
+- Natural Earth 1:50m river centerlines: public domain.
+- IISH/RiStat Russian Empire Historical GIS Maps (1897): CC0; repository requests scholarly citation.
+- OpenStreetMap Moskva River relation 389341: Open Database License 1.0; copyright OpenStreetMap contributors.
 - Wikimedia Commons portraits: public domain unless noted below; exact file-page evidence is retained in `apps/web/public/assets/portraits/sources.json`.
 - `trotsky.jpg`, sourced from the Rijksmuseum Commons record: Creative Commons Zero 1.0.
 

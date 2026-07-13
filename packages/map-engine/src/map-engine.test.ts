@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RegionState } from '@april-thesis/shared-types';
-import { computeInfluenceField, getIntelligenceBlur, getMapZoomTier, getRegionValueForMode, layoutCityLabels, valueToColor } from './index';
+import { buildContestedZonePath, buildInfluenceContourBands, computeInfluenceField, generateContourBandPath, getIntelligenceBlur, getMapZoomTier, getRegionValueForMode, layoutCityLabels, valueToColor } from './index';
 
 const region = {
   influence: { workersOpposition: 42 }, industrialProduction: 60, agriculturalProduction: 20,
@@ -41,5 +41,33 @@ describe('map calculations', () => {
     expect(labels.find(item => item.id === 'selected')?.labelVisible).toBe(true);
     expect(labels.find(item => item.id === 'capital')?.labelVisible).toBe(false);
     expect(labels.find(item => item.id === 'local')?.labelVisible).toBe(true);
+  });
+
+  it('measures label collisions after zoom and pan and enforces the national cap', () => {
+    const labels=layoutCityLabels(Array.from({length:12},(_,index)=>({
+      id:`city-${index}`,name:`Measured ${index}`,regionId:'national',x:20+index*45,y:80,
+      labelPriority:1,nationalEssential:true,
+    })),{
+      zoom:2,panX:-30,panY:10,viewportWidth:1000,viewportHeight:560,maxLabels:10,
+      measureText:()=>70,
+    });
+    expect(labels.filter(label=>label.labelVisible).length).toBeLessThanOrEqual(10);
+    expect(labels[0].labelVisible).toBe(true);
+    expect(labels[1].labelVisible).toBe(false);
+  });
+
+  it('generates deterministic marching-squares contour bands and contested zones', () => {
+    const field=new Float32Array([0,100,0,100]);
+    const path=generateContourBandPath(field,2,2,100,100,50);
+    expect(path).toContain('50.00,0.00');
+    expect(path).toContain('Z');
+    const nodes=[
+      {id:'a',regionId:'r',x:20,y:20,factionValues:{workersOpposition:80,centralCommittee:76}},
+      {id:'b',regionId:'r',x:80,y:80,factionValues:{workersOpposition:35,centralCommittee:40}},
+    ];
+    const bands=buildInfluenceContourBands(nodes,'workersOpposition',100,100,[40,60],12,8);
+    expect(bands).toHaveLength(2);
+    expect(bands[0].path.length).toBeGreaterThan(0);
+    expect(buildContestedZonePath(nodes,['workersOpposition','centralCommittee'],100,100,10,20,12,8).length).toBeGreaterThan(0);
   });
 });

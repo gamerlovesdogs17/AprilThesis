@@ -13,6 +13,7 @@ import type { RegionDefinition, CharacterDefinition, InstitutionDefinition, LawD
 import { SeededRng } from './rng';
 import { applyBackgroundBlocEffects, initializePoliticalSystems } from './politics';
 import { captureCampaignSnapshot } from './history';
+import { buildSituationBoard, emptyCampaignHistory } from './presentation';
 
 const DIFFICULTY_MODIFIERS: Record<Difficulty, Partial<FactionResources>> = {
   lenient: { treasury: 15, security: 10, intelligence: 10, partyLegitimacy: 5 },
@@ -295,8 +296,11 @@ export function createCampaign(
       famine_active: true,
     },
     historySnapshots: [],
+    situationBoard: {schemaVersion:1,month:CAMPAIGN_START_DATE,generatedTurn:1,dismissed:false,items:[]},
+    campaignHistory: emptyCampaignHistory(),
   };
   campaign.historySnapshots = [captureCampaignSnapshot(campaign)];
+  campaign.situationBoard = buildSituationBoard(campaign);
   return campaign;
 }
 

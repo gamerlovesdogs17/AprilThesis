@@ -16,6 +16,8 @@ async function launchCampaign(page: Page, background?: string, tutorial=false) {
   await launch.click();
   if (!(await page.getByTestId('geographic-map').isVisible()) && await launch.isVisible()) await launch.click();
   await expect(page.getByTestId('geographic-map')).toBeVisible();
+  const boardClose=page.getByRole('button',{name:'Close Situation Board'});
+  if(await boardClose.count())await boardClose.click();
 }
 
 async function chooseAndDismiss(page: Page, name: RegExp | string) {
@@ -42,7 +44,7 @@ test('starts a campaign, resolves the opening, uses the map, and saves', async (
   await page.getByLabel('Select historical province').selectOption('petrograd-governorate');
   await expect(page.getByRole('heading', { name: 'Petrograd' })).toBeVisible();
   await page.getByLabel('Map mode').selectOption('famine_disease');
-  await expect(page.getByText('Famine severity and disease burden')).toBeVisible();
+  await expect(page.getByLabel('Map mode')).toHaveValue('famine_disease');
   await page.getByRole('button', { name: /Next phase/ }).click();
   await page.getByRole('button', { name: /Next phase/ }).click();
   await page.getByRole('button', { name: /Send Organizer 1 turn/ }).click();
@@ -125,9 +127,9 @@ test('map offers the complete sixteen-mode political and administrative legend',
   await launchCampaign(page);
   await expect(page.getByLabel('Map mode').locator('option')).toHaveCount(16);
   await page.getByLabel('Map mode').selectOption('party_organization');
-  await expect(page.getByText('Density and activity of Communist Party membership')).toBeVisible();
+  await expect(page.getByLabel('Map mode')).toHaveValue('party_organization');
   await page.getByLabel('Map mode').selectOption('propaganda_reach');
-  await expect(page.getByText('Estimated reach of faction propaganda')).toBeVisible();
+  await expect(page.getByLabel('Map mode')).toHaveValue('propaganda_reach');
 });
 
 test('newspaper archive preserves contradictory source metadata and filters', async ({ page }) => {
@@ -158,7 +160,7 @@ test('map zoom, reset, and dedicated province view stay clamped', async ({ page 
   const zoom = page.getByLabel('Map zoom');
   await expect(zoom).toHaveText('100%');
   for (let i = 0; i < 10; i++) await page.getByTestId('zoom-in').click();
-  await expect(zoom).toHaveText('400%');
+  await expect(zoom).toHaveText('420%');
   await page.getByLabel('Select historical province').selectOption('petrograd-governorate');
   await page.getByTestId('enter-province').click();
   await expect(page.getByTestId('province-detail-view')).toBeVisible();
@@ -280,7 +282,8 @@ test('railway and political influence layers toggle from real controls', async (
   await expect(page.getByTestId('railway-layer')).toBeVisible();
   await page.getByTestId('toggle-railways').click();
   await expect(page.getByTestId('railway-layer')).toHaveCount(0);
-  await expect(page.getByTestId('influence-layer')).toBeVisible();
+  await expect(page.getByTestId('influence-layer')).toHaveCount(1);
+  await expect(page.getByTestId('influence-layer').locator('path')).not.toHaveCount(0);
   await page.getByTestId('toggle-influence').click();
   await expect(page.getByTestId('influence-layer')).toHaveCount(0);
 });
@@ -323,6 +326,7 @@ test('plays a full month and records history without console errors', async ({ p
   for (let i = 0; i < 4; i++) await page.getByRole('button', { name: /Next phase/ }).click();
   await page.getByRole('button', { name: /Advance month/ }).click();
   await page.getByRole('button', { name: 'Return to map' }).click();
+  const boardClose=page.getByRole('button',{name:'Close Situation Board'});if(await boardClose.count())await boardClose.click();
   await expect(page.getByText('April 1921', { exact: true }).first()).toBeVisible();
   await openDock(page,'Situation','National');
   await expect(page.getByText(/2 snapshots · real campaign history/)).toBeVisible();

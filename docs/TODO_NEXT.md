@@ -1,9 +1,8 @@
-# Remaining Human Review
+# Phase Six Remaining Work
 
-Phase Five implementation and automated acceptance are complete. These are the remaining human or archival refinements, not missing gameplay systems.
+1. Complete and record a human click-by-click March-August campaign. Automated six-turn simulation reachability and the clean 48-scenario browser suite do not satisfy this gate.
+2. Obtain specialist archival review or finer digitization for treaty-scale western frontiers, Mountain and Bashkir internal divisions, Transcaucasian disputes, and occupation context on Sakhalin.
+3. Conduct speaker/headphone mastering and a dedicated screen-reader audit.
+4. Optional portrait research remains for Sergei Medvedev and a more precisely dated Tomsky image.
 
-1. Complete a human click-by-click March–August playthrough. The managed in-app browser was stopped before this final manual pass; automated browser coverage verifies a complete month and the simulation suite verifies all six chapter turns and ending selection.
-2. Conduct speaker/headphone mastering for every score loop and crossfade.
-3. Conduct a dedicated screen-reader audit beyond the automated roles, labels, keyboard navigation, and viewport checks.
-4. If cartographic exactness beyond the current disclosed generalized atlas is required, trace higher-resolution province vectors directly against the Troitsky/NKVD sheet and record per-feature control points. Do not relabel the current display geometry as cadastral.
-5. Optional research: locate a securely identified period portrait for Sergei Medvedev and a more precisely dated circa-1921 Tomsky photograph. Do not substitute uncertain subjects.
+Completed automated evidence: 47 Vitest tests, asset validation, TypeScript, production build, 48/48 Playwright scenarios in one run, and 22 Phase Six review screenshots.

@@ -1,25 +1,25 @@
 # Map Implementation
 
-## Separation of historical display and simulation
+## Administrative and simulation separation
 
-The 28 strategic region IDs remain the stable simulation aggregates. They drive state, AI, operations, save compatibility, and political calculations but no longer supply the visible internal administrative labels or normal boundary strokes.
+`packages/content/src/historicalProvinces.ts` imports 96 dated GIS-derived units. Each records period name, government, administrative type, stable simulation parent, polygon or multipolygon, capital, validity, source features, reconstruction operation, confidence, and notes. Ninety-three units are active in March 1921.
 
-`packages/content/src/historicalProvinces.ts` defines 88 dated units through `HistoricalProvince`: period name, alternate names, government, administrative type, simulation aggregate mapping, GeoJSON polygon or multipolygon, capital, validity interval, sources, confidence, and notes. `isProvinceActive()` selects the units valid for the campaign month. Every source ID resolves to a dated source record.
+Province paths are independent selectable surfaces and are never clipped to strategic aggregates. The optional strategic overlay is a low-opacity dissolve of member provinces, hidden by default. Formal-government borders are a separate stronger dissolve.
 
-The national renderer clips each generalized province geometry to its hidden simulation aggregate. This prevents the display geometry from leaking across the playable land surface while keeping the aggregate topology invisible in production. A development-only debug overlay can reveal the 28 aggregates.
+## National atlas
 
-## Two map surfaces
+The national map uses a muted territorial field, coastline and border hierarchy, major rivers, trunk railways, at most ten overview city labels, screen-space text measurement, and a fine selected-province stroke. Historical Atlas, Political Intelligence, Economic Planning, and Minimal Accessibility presets alter presentation only. Seven theater buttons pan and zoom this same map and show a national inset at depth.
 
-The **National atlas** shows dated administrative units, political reach, period city names, rivers, railways, uncertainty, and operations. A province selector is the primary administrative navigation. Labels use a collision pass and only appear at appropriate scale; the 10 essential national cities remain the restrained overview set.
+Influence is an interpolated scalar field rendered with marching-squares contours and territorial clipping. Optional contested and uncertainty hatches remain legible over administrative lines; large blurred circles are no longer the primary display.
 
-**Province detail** is a separate local atlas, not a national-map zoom. It normalizes the selected province geometry into its own drawing surface and adds a local ledger, rail and river context, and named sites. City, factory, railway, port, union, security, and garrison sites use distinct SVG pictograms. The former F/R/P/U/S/G map glyphs are gone.
+## Province atlas
 
-All map controls stay above the active-decision overlay. The dossier begins below the atlas toolbar so map and event controls remain independently usable.
+Province detail uses the detailed exterior, real uyezd boundaries, province-clipped rivers and railways, exact province-assigned cities, geographic sites, neighbors, current organizers and operations, and formal-government context. Missing district data is disclosed without decorative subdivision. Raw source IDs stay in Research Notes and documentation.
 
-## Accuracy statement
+## Runtime and saves
 
-Administrative identities, dates, names, and source relationships are historical. Display geometries are explicitly generalized interpretive vectors prepared for this interface, not cadastral boundary claims. The UI and legend say “generalized display geometry,” and confidence is shown in the province ledger. The source basis and limits are detailed in `docs/HISTORICAL_PROVINCE_MAP.md`.
+The browser imports committed GeoJSON/TopoJSON from `packages/content/map-data/`; it does not fetch a map service. Map geometry is absent from saves. Save version 6 adds only compact Situation Board and Campaign History records.
 
 ## Validation
 
-Unit coverage checks unique IDs, source resolution, dated activation, GeoJSON path output, aggregate mapping, strategic topology, city projection, collision logic, and historical names. Browser coverage checks selection, the dedicated province transition, local atlas semantics, zoom/reset, layer toggles, drag behavior, accessible controls, and screenshot capture.
+`scripts/map/validate_geometry.py` checks validity, overlaps, gaps, slivers, containment, mappings, dates, transport bounds, and metadata, then emits QA reports under `docs/map-qa/`. Unit tests cover reconstruction imports, city/site/transport assignment, strategic dissolves, contours, screen-space labels, presentation selection, and save migration.

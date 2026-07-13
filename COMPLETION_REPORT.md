@@ -1,4 +1,22 @@
-# Completion Report: Phase Five
+# Implementation Report: Phase Six
+
+## Current status
+
+The Phase Six GIS and presentation implementation is in place. Static validation passes and the complete 48-scenario Playwright suite passed in one clean run. Phase Six is still not declared complete because the required human click-by-click March-August campaign remains outstanding.
+
+The repository now contains 96 source-feature reconstruction rules, 93 active March province surfaces, 646 districts, 14 formal-government dissolves, 28 optional strategic dissolves, 694 clipped river segments, 82 clipped railway segments, corrected province/city/site assignment, influence contours, seven theaters, four appearance presets, a monthly Situation Board, and compact Campaign History. Save version 6 migrates Phase Five campaigns additively and simulation balance is unchanged.
+
+See `docs/PHASE_SIX_REVIEW.md` for the current verification boundary.
+
+## Phase Six verification
+
+- GIS validation passes for active provinces, districts, cities, sites, transport, date rules, source metadata, and province-to-strategic mappings.
+- Static workspace validation covers 47 Vitest tests, asset checks, TypeScript, and the production build.
+- Chromium passes 48/48 scenarios in one clean run, including the Phase Six cartography, province atlas, seven theaters, presentation overlays, save migration, and screenshot matrix.
+- `docs/review-screenshots/phase-six-after/` contains 22 stabilized review images.
+- Automated full-month coverage and six-turn simulation reachability do not substitute for the outstanding human March-August playthrough.
+
+# Archived Completion Report: Phase Five
 
 ## Outcome
 

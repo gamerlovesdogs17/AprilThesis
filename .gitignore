@@ -1,4 +1,7 @@
 node_modules/
+.gis-python/
+.gis-local/
+packages/content/map-data/build/
 dist/
 build/
 coverage/

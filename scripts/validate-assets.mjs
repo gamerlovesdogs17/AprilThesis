@@ -11,6 +11,15 @@ const errors = [];
 if (!manifest.canonical) errors.push('canonical asset manifest is not marked canonical');
 try { await stat(staleRootManifest); errors.push('stale root public/assets/assets-manifest.json must not exist'); } catch { /* Expected: one canonical manifest only. */ }
 
+const productionMapSource = await readFile(resolve(root, 'apps/web/src/components/GeographicMap.tsx'), 'utf8');
+const provinceSource = await readFile(resolve(root, 'packages/content/src/historicalProvinces.ts'), 'utf8');
+if (productionMapSource.includes('aggregate-clip-') || productionMapSource.includes('url(#aggregate-clip')) {
+  errors.push('production map must not clip historical provinces to strategic aggregates');
+}
+if (provinceSource.includes('generalizedBox')) {
+  errors.push('production historical province geometry must not use generalizedBox');
+}
+
 for (const asset of manifest.assets) {
   for (const field of ['localPath', 'source', 'creator', 'license', 'verificationStatus']) {
     if (!asset[field]) errors.push(`${asset.localPath ?? '<unknown>'}: missing ${field}`);

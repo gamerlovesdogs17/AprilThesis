@@ -32,6 +32,14 @@ export {
 } from './save';
 export { captureCampaignSnapshot, appendCampaignSnapshot, deriveNationalChartSeries } from './history';
 export {
+  REGION_PROVINCE_LINKS,
+  buildSituationBoard,
+  emptyCampaignHistory,
+  appendCampaignHistoryEntry,
+  appendMonthlyCampaignHistory,
+  historyEntry,
+} from './presentation';
+export {
   initializePoliticalSystems,
   refreshVoteEstimate,
   performFactionAction,
