@@ -173,6 +173,11 @@ export interface CharacterState {
   isAlive: boolean;
   isArrested: boolean;
   isExiled: boolean;
+  availability: 'active' | 'ill' | 'arrested' | 'exiled' | 'removed';
+  currentAgenda: string;
+  lastAction: string;
+  relationshipPressure: number;
+  knownSecrets: string[];
 }
 
 export interface InstitutionState {
@@ -182,6 +187,86 @@ export interface InstitutionState {
   securityPenetration: number;
   bureaucratization: number;
   corruption: number;
+  attitude: number;
+  autonomy: number;
+  activeAgenda: string;
+  pendingBusiness: string[];
+  contactIds: string[];
+  lastAction: string;
+}
+
+export type OrganizerStatus = 'available' | 'assigned' | 'resting' | 'wounded' | 'arrested' | 'missing';
+
+export interface OrganizerState {
+  id: string;
+  name: string;
+  background: string;
+  skills: { organizing: number; security: number; persuasion: number; intelligence: number };
+  loyalty: number;
+  morale: number;
+  exposure: number;
+  health: number;
+  status: OrganizerStatus;
+  regionKnowledge: Record<string, number>;
+  traits: string[];
+  assignedRegionId: string | null;
+  assignedInstitutionId: string | null;
+  assignment: string | null;
+  cooldown: number;
+}
+
+export interface FactionBlocState {
+  id: string;
+  name: string;
+  leaderId: string;
+  support: number;
+  satisfaction: number;
+  internalWeight: number;
+  preferences: string[];
+  redLines: string[];
+  undergroundWillingness: number;
+  splitRisk: number;
+  lastReaction: string;
+}
+
+export type DelegateStance = 'support' | 'oppose' | 'undecided';
+
+export interface DelegateState {
+  id: string;
+  name: string;
+  delegation: string;
+  characterId?: string;
+  bloc: string;
+  publicStance: DelegateStance;
+  estimatedLean: number;
+  intelligenceConfidence: number;
+  reliability: number;
+  concerns: string[];
+  lobbying: number;
+  promises: string[];
+  resolvedVote: 'for' | 'against' | 'abstain' | null;
+}
+
+export interface VoteLogEntry {
+  turn: number;
+  delegateId?: string;
+  action: string;
+  result: string;
+  cost?: Record<string, number>;
+}
+
+export interface PolicyProposalState {
+  id: string;
+  lawId: string;
+  title: string;
+  targetLevel: number;
+  stage: 'available' | 'campaigning' | 'ballot' | 'passed' | 'failed';
+  support: number;
+  opposition: number;
+  institutionId: string;
+  immediateEffects: Record<string, number>;
+  ongoingEffects: Record<string, number>;
+  history: string[];
 }
 
 export interface ActiveOperation {
@@ -191,6 +276,8 @@ export interface ActiveOperation {
   turnsRemaining: number;
   organizerId?: string;
   startedTurn: number;
+  successChance?: number;
+  detectionChance?: number;
 }
 
 export interface DecisionRecord {
@@ -212,6 +299,11 @@ export interface NewspaperArticle {
   characterId?: string;
   bias: string;
   reliability: number;
+  suppressed?: boolean;
+  contradictsArticleId?: string;
+  linkedRegionIds?: string[];
+  linkedCharacterIds?: string[];
+  template?: 'official' | 'regional' | 'factional' | 'foreign' | 'security';
 }
 
 export interface CampaignSettings {
@@ -255,6 +347,15 @@ export interface CampaignState {
   endingId: string | null;
   rngState: number;
   organizerAssignments: Record<string, string>;
+  organizers: Record<string, OrganizerState>;
+  factionBlocs: Record<string, FactionBlocState>;
+  policyProposals: Record<string, PolicyProposalState>;
+  factionActionsRemaining: number;
+  politicalActionsRemaining: number;
+  operationCooldowns: Record<string, number>;
+  operationHistory: string[];
+  institutionHistory: string[];
+  characterCommunications: string[];
   monthlyBudget: Record<string, number>;
   voteState: VoteState | null;
   flags: Record<string, boolean | number | string>;
@@ -262,6 +363,15 @@ export interface CampaignState {
 
 export interface VoteState {
   id: string;
+  title: string;
+  description: string;
+  scheduledDate: string;
+  institutionId: string;
+  proposalId: string;
+  threshold: number;
+  actionsRemaining: number;
+  delegates: DelegateState[];
+  log: VoteLogEntry[];
   declaredSupporters: number;
   declaredOpponents: number;
   undecided: number;
@@ -270,6 +380,7 @@ export interface VoteState {
   confidence: number;
   resolved: boolean;
   passed: boolean | null;
+  tally: { for: number; against: number; abstain: number } | null;
 }
 
 export interface SaveEnvelope {
@@ -296,9 +407,9 @@ export interface UserPreferences {
   colorblindMode: boolean;
 }
 
-export const GAME_VERSION = '0.1.0';
-export const CONTENT_VERSION = '0.1.0';
-export const SAVE_VERSION = 1;
+export const GAME_VERSION = '0.2.0';
+export const CONTENT_VERSION = '0.2.0';
+export const SAVE_VERSION = 2;
 export const CAMPAIGN_START_DATE = '1921-03';
 export const CAMPAIGN_END_DATE = '1924-04';
 export const VERTICAL_SLICE_END = '1921-08';

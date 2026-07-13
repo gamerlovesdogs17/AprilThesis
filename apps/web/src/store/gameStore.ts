@@ -20,8 +20,19 @@ import {
   listSaveSlots,
   loadPreferences,
   savePreferences,
+  performFactionAction,
+  lobbyDelegate,
+  resolveVote,
+  beginPolicyCampaign,
+  campaignForProposal,
+  influenceInstitution,
+  runPoliticalMonth,
+  isEventChoiceEligible,
+  getOperationEligibility,
   type ContentBundle,
   type SaveSlot,
+  type FactionActionId,
+  type LobbyAction,
 } from '@april-thesis/simulation';
 import type { EventDefinition } from '@april-thesis/content-schema';
 import { getContentBundle, getEventById } from '@april-thesis/content';
@@ -54,7 +65,13 @@ interface GameStore {
   toggleLeftSidebar: () => void;
   setBottomTab: (tab: string) => void;
   resolveEventChoice: (eventId: string, choiceId: string) => void;
-  startOperation: (regionId: string, operationId: string) => void;
+  startOperation: (regionId: string, operationId: string, organizerId?: string) => void;
+  performFactionAction: (action: FactionActionId, organizerId?: string, targetId?: string) => void;
+  lobbyDelegate: (delegateId: string, action: LobbyAction) => void;
+  resolvePoliticalVote: () => void;
+  beginPolicyCampaign: (proposalId: string) => void;
+  campaignForProposal: (proposalId: string) => void;
+  approachInstitution: (institutionId: string) => void;
   updatePreferences: (prefs: Partial<UserPreferences>) => void;
   saveGame: (slotId: string, name?: string) => Promise<void>;
   refreshSaveSlots: () => Promise<void>;
@@ -146,12 +163,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   advancePhase: () => {
     const { campaign, content } = get();
     if (!campaign) return;
-    const nextPhase = getNextPhase(campaign.phase);
+    let current = campaign;
+    if (campaign.phase === 'party_politics' && campaign.voteState && !campaign.voteState.resolved && campaign.currentDate >= campaign.voteState.scheduledDate) {
+      current = resolveVote(campaign);
+    }
+    const nextPhase = getNextPhase(current.phase);
     if (nextPhase === 'advance_month') {
       get().endTurn();
       return;
     }
-    let next = { ...campaign, phase: nextPhase };
+    let next = { ...current, phase: nextPhase };
     next = queueMonthEvents(next, content.events);
     next = processPendingEvent(next);
     set({ campaign: next });
@@ -170,6 +191,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!event) return;
     const choice = event.choices.find(c => c.id === choiceId);
     if (!choice) return;
+    if (!isEventChoiceEligible(campaign, event, choiceId).eligible) return;
 
     let next = structuredClone(campaign);
     if (choice.effects) {
@@ -211,8 +233,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const official = choice.effects?.partyLegitimacy && Number(choice.effects.partyLegitimacy) > 0;
       const publicationId = official ? 'pravda' : next.resources.exposure > 55 ? 'cheka_digest' : 'wo_circular';
       const publication = content.publications.find(item => item.id === publicationId);
+      const primaryId = `article-${next.turnNumber}-${next.newspapers.length}`;
       next.newspapers.push({
-        id: `article-${next.turnNumber}-${next.newspapers.length}`,
+        id: primaryId,
         publicationId,
         headline: event.title.toUpperCase(),
         body: official
@@ -221,6 +244,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
         date: next.currentDate,
         bias: publication?.bias ?? 'unknown',
         reliability: publication?.reliability ?? 40,
+        template: publicationId === 'pravda' ? 'official' : publicationId === 'cheka_digest' ? 'security' : 'factional',
+        linkedCharacterIds: Object.keys(choice.effects ?? {}).filter(key => key.startsWith('character:')).map(key => key.split(':')[1]),
+      });
+      const counterPublicationId = publicationId === 'pravda' ? 'wo_circular' : 'pravda';
+      const counter = content.publications.find(item => item.id === counterPublicationId);
+      next.newspapers.push({
+        id: `article-${next.turnNumber}-${next.newspapers.length}`,
+        publicationId: counterPublicationId,
+        headline: publicationId === 'pravda' ? `WHAT THE OFFICIAL COMMUNIQUÉ OMITS: ${event.title}` : `PARTY STATEMENT ON ${event.title}`,
+        body: publicationId === 'pravda'
+          ? `A restricted circular disputes the official account. Delegates report that “${choice.text}” produced resistance, private bargaining, and unresolved workplace consequences.`
+          : `The central press describes ${choice.text.toLowerCase()} as an orderly application of party policy and denies reports of a political rupture.`,
+        date: next.currentDate, bias: counter?.bias ?? 'unknown', reliability: counter?.reliability ?? 45,
+        suppressed: counterPublicationId === 'wo_circular' && next.resources.exposure > 65,
+        contradictsArticleId: primaryId, template: counterPublicationId === 'pravda' ? 'official' : 'factional',
       });
       set({ pendingNewspaper: { headline: event.title, publication: 'pravda' } });
     }
@@ -239,11 +277,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ campaign: next, turnSummary: headlines.length ? headlines : null });
   },
 
-  startOperation: (regionId, operationId) => {
+  startOperation: (regionId, operationId, organizerId) => {
     const { campaign, content } = get();
     if (!campaign) return;
     const opDef = content.operations.find(o => o.id === operationId);
     if (!opDef) return;
+    const eligibility = getOperationEligibility(campaign, opDef, regionId, organizerId);
+    if (!eligibility.eligible) return;
 
     const next = structuredClone(campaign);
     if (next.activeOperations.filter(op => op.startedTurn === next.turnNumber).length >= 2) return;
@@ -260,10 +300,48 @@ export const useGameStore = create<GameStore>((set, get) => ({
       regionId,
       operationId,
       turnsRemaining: opDef.duration,
+      organizerId,
       startedTurn: next.turnNumber,
+      successChance: eligibility.successChance,
+      detectionChance: eligibility.detectionChance,
     });
+    if (organizerId && next.organizers[organizerId]) {
+      const organizer = next.organizers[organizerId];
+      organizer.status = 'assigned'; organizer.assignedRegionId = regionId; organizer.assignment = opDef.name;
+      next.organizerAssignments[organizerId] = regionId;
+    }
 
     set({ campaign: next });
+  },
+
+  performFactionAction: (action, organizerId, targetId) => {
+    const campaign = get().campaign; if (!campaign) return;
+    set({ campaign: performFactionAction(campaign, action, organizerId, targetId) });
+  },
+
+  lobbyDelegate: (delegateId, action) => {
+    const campaign = get().campaign; if (!campaign) return;
+    set({ campaign: lobbyDelegate(campaign, delegateId, action) });
+  },
+
+  resolvePoliticalVote: () => {
+    const campaign = get().campaign; if (!campaign) return;
+    set({ campaign: resolveVote(campaign) });
+  },
+
+  beginPolicyCampaign: (proposalId) => {
+    const campaign = get().campaign; if (!campaign) return;
+    set({ campaign: beginPolicyCampaign(campaign, proposalId) });
+  },
+
+  campaignForProposal: (proposalId) => {
+    const campaign = get().campaign; if (!campaign) return;
+    set({ campaign: campaignForProposal(campaign, proposalId) });
+  },
+
+  approachInstitution: (institutionId) => {
+    const campaign = get().campaign; if (!campaign) return;
+    set({ campaign: influenceInstitution(campaign, institutionId) });
   },
 
   updatePreferences: (prefs) => {
@@ -278,8 +356,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   saveGame: async (slotId, name) => {
     const { campaign } = get();
     if (!campaign) return;
-    const envelope = createSaveEnvelope(campaign, name);
-    await saveToSlot(slotId, envelope);
+    const effectiveSlot = campaign.settings.ironman ? 'ironman-campaign' : slotId;
+    const envelope = createSaveEnvelope(campaign, campaign.settings.ironman ? `Ironman · ${campaign.settings.seed}` : name);
+    await saveToSlot(effectiveSlot, envelope);
     await get().refreshSaveSlots();
   },
 
@@ -297,6 +376,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     next = afterOps;
 
     next = advanceMonth(next);
+    next = runPoliticalMonth(next);
     next = queueMonthEvents(next, content.events);
     next = processPendingEvent(next);
 

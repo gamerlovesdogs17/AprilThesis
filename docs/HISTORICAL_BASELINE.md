@@ -19,4 +19,4 @@ The game separates historical claims, simulation inference, and creative inventi
 - `fictional_composite`: invented scene or mechanism compressing many local experiences.
 - `counterfactual`: requires prior divergence and must never be described as recorded fact.
 
-The June labor-policy vote, private apartment meeting, organizer assignments, and most player dialogue are composites. Numeric regional values are simulation estimates, not archival measurements.
+The June labor-policy vote, its 28-person named roll, private apartment meeting, organizer assignments, and most player dialogue are composites. Historical names in the June board represent a plausible decision-making constellation, while fictional-composite delegates fill constituencies needed by the simulation; the recorded individual votes are not archival claims. Numeric regional values are simulation estimates, not archival measurements.

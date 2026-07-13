@@ -1,22 +1,22 @@
 # Progress
 
-## Completed in this run
+## Phase Two complete
 
-- Repaired all TypeScript and production-build blockers.
-- Implemented campaign setup with six backgrounds, four difficulties, three simulation modes, seed, tutorial, and ironman settings.
-- Implemented a map-centered campaign shell with 28 selectable regions, uncertainty treatment, legends, keyboard access, patterns, and 12 working map modes.
-- Implemented regional dossiers and 15 costed, risky, delayed operations with a two-operation monthly order limit.
-- Implemented five turn phases, March opening sequence, month advancement, persistent effects, 26 branching events, character trust/memory, and chapter endings.
-- Implemented dynamic biased newspaper clippings, institution/character/law/intelligence/economy/faction/decision/source views, and a political vote estimate.
-- Implemented manual save/load plus three rotating autosaves; repaired checksums.
-- Implemented archive, settings, accessibility preferences, credits, and endings.
-- Added automated simulation/map/content tests and asset validation.
-- Added historical, asset, architecture, and continuation documentation.
-- Browser-tested intro skip, new campaign, complete opening, region selection, mode change, operation ordering/resolution, month advancement, save/load, layout, and console.
+- Preserved and extended the npm-workspaces architecture, seeded simulation, content schemas, March opening, and local-first campaign.
+- Enforced setup choices for background, difficulty, historical constraint, seed, tutorial, and ironman.
+- Expanded the strategic map to 16 working modes with formal government labels, full legends, uncertainty, and a toggleable influence field.
+- Added eight named organizers, eight internal blocs, limited faction actions, assignments, protection, printing, meetings, budget allocation, fatigue, exposure, arrests, releases, and monthly drift.
+- Replaced the June estimate with a 28-delegate named composite roll call, three lobbying methods, delegate histories, abstentions, threshold, tally, and deterministic resolution.
+- Added three direct policy proposals with campaign costs, opposition, immediate effects, and ongoing monthly law effects.
+- Made all eight institutions and 15 characters active through agendas, attitudes, relationships, pressure, communications, and autonomous monthly actions.
+- Added transparent operation eligibility, organizer-skill and intelligence inputs, success/detection chances, cooldown/history, and persistent results.
+- Expanded newspapers to ten publications with filters, suppression status, contradictory official/factional accounts, and entity links.
+- Upgraded saves to version 2 with migrations, manual/autosave/ironman behavior, continue-latest, duplicate, export/import, delete, checksum validation, and quarantine.
+- Authored 11 Playwright campaign scenarios and expanded the automated unit/integration suite to 19 tests.
 
 ## Verification status
 
-- Typecheck: passing.
-- Production build: passing.
-- Browser console: no errors or warnings in tested flow.
-- Unit/integration, asset validation, and final build: see `COMPLETION_REPORT.md` for final command results.
+- `npm run lint`: passing.
+- `npm run validate:all`: passing; all 19 Vitest tests, asset validation, type checking, and production build passed.
+- Full in-app browser playthrough: passing from setup through the September chapter outcome, including a named June vote and March-August event/turn flow.
+- Current Playwright suite execution still requires a successful local Chromium launch; the final environment's browser-launch approval service did not execute that command. The 11 scenarios remain available through `npm run test:e2e`.

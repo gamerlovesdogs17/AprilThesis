@@ -59,6 +59,13 @@ export function applyEffects(
           const character = next.characters[charId] as unknown as Record<string, number>;
           character[field] = clamp(character[field] + value, 0, 100);
         }
+      } else if (key.startsWith('institution:')) {
+        const [, institutionId, field] = key.split(':');
+        const institution = next.institutions[institutionId];
+        if (institution && typeof (institution as unknown as Record<string, unknown>)[field] === 'number') {
+          const record = institution as unknown as Record<string, number>;
+          record[field] = clamp(record[field] + value, 0, 100);
+        }
       } else if (key === 'internalCohesion') {
         next.internalCohesion = clamp(next.internalCohesion + value, 0, 100);
       }
@@ -132,15 +139,32 @@ export function resolveOperations(
     if (op.turnsRemaining <= 0) {
       const opDef = operations.find(o => o.id === op.operationId);
       if (opDef) {
-        const effects = Object.fromEntries(
-          Object.entries(opDef.effects).map(([key, value]) => [key.replace('TARGET', op.regionId), value]),
-        );
-        Object.assign(next, applyEffects(next, effects));
-        if (opDef.risks?.arrestChance && rng.chance(opDef.risks.arrestChance)) {
-          next.resources.exposure = clamp(next.resources.exposure + 10, 0, 100);
+        const success = rng.chance((op.successChance ?? 100) / 100);
+        const detected = rng.chance((op.detectionChance ?? Math.round((opDef.risks?.arrestChance ?? 0) * 100)) / 100);
+        if (success) {
+          const effects = Object.fromEntries(
+            Object.entries(opDef.effects).map(([key, value]) => [key.replace('TARGET', op.regionId), value]),
+          );
+          Object.assign(next, applyEffects(next, effects));
         }
-        if (opDef.risks?.exposureIncrease) {
-          next.resources.exposure = clamp(next.resources.exposure + opDef.risks.exposureIncrease, 0, 100);
+        if (detected) {
+          next.resources.exposure = clamp(next.resources.exposure + 10 + (opDef.risks?.exposureIncrease ?? 0), 0, 100);
+          if (op.organizerId && next.organizers[op.organizerId]) {
+            const organizer = next.organizers[op.organizerId];
+            const arrested = rng.chance(Math.max(.15, (opDef.risks?.arrestChance ?? .08) + next.regions[op.regionId].chekaPresence / 200));
+            if (arrested) {
+              organizer.status = 'arrested'; organizer.assignment = null; organizer.assignedRegionId = null;
+              next.organizerAssignments[organizer.id] = 'arrested';
+              next.operationHistory.push(`${next.currentDate}: ${organizer.name} was arrested during ${opDef.name} in ${op.regionId}.`);
+            }
+          }
+        } else if (opDef.risks?.securityDecrease) {
+          next.resources.security = clamp(next.resources.security - opDef.risks.securityDecrease, 0, 100);
+        }
+        next.operationCooldowns[opDef.id] = Math.max(1, opDef.duration - 1);
+        next.operationHistory.push(`${next.currentDate}: ${opDef.name} in ${op.regionId} ${success ? 'succeeded' : 'failed'}${detected ? ' and was detected' : ''}.`);
+        if (op.organizerId && next.organizers[op.organizerId]?.status === 'assigned') {
+          const organizer = next.organizers[op.organizerId]; organizer.status = 'available'; organizer.assignment = null; organizer.assignedRegionId = null;
         }
       }
       completed.push(op.id);
@@ -161,6 +185,9 @@ export function advanceMonth(state: CampaignState): CampaignState {
 
   for (const region of Object.values(next.regions)) {
     region.intelligenceAge += 1;
+  }
+  for (const key of Object.keys(next.operationCooldowns)) {
+    next.operationCooldowns[key] = Math.max(0, next.operationCooldowns[key] - 1);
   }
 
   if (next.resources.exposure > 70) {

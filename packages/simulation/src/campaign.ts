@@ -11,6 +11,7 @@ import type {
 import { CAMPAIGN_START_DATE } from '@april-thesis/shared-types';
 import type { RegionDefinition, CharacterDefinition, InstitutionDefinition, LawDefinition } from '@april-thesis/content-schema';
 import { SeededRng } from './rng';
+import { applyBackgroundBlocEffects, initializePoliticalSystems } from './politics';
 
 const DIFFICULTY_MODIFIERS: Record<Difficulty, Partial<FactionResources>> = {
   lenient: { treasury: 15, security: 10, intelligence: 10, partyLegitimacy: 5 },
@@ -122,7 +123,7 @@ function buildRegionState(def: RegionDefinition): RegionState {
   };
   return {
     id: def.id,
-    formalGovernment: 'RSFSR',
+    formalGovernment: getFormalGovernment(def.id),
     administrativeCapacity: def.initialState.administrativeCapacity,
     influence,
     peasantResistance: def.initialState.peasantResistance,
@@ -148,6 +149,19 @@ function buildRegionState(def: RegionDefinition): RegionState {
     intelligenceReliability: def.initialState.intelligenceReliability,
     intelligenceAge: 0,
   };
+}
+
+function getFormalGovernment(regionId: string): string {
+  if (['donbas', 'central_ukraine', 'western_ukraine'].includes(regionId)) return 'Ukrainian SSR';
+  if (regionId === 'belarus') return 'Byelorussian SSR';
+  if (regionId === 'georgia') return 'Georgian SSR';
+  if (regionId === 'armenia') return 'Armenian SSR';
+  if (regionId === 'azerbaijan') return 'Azerbaijan SSR';
+  if (regionId === 'far_east') return 'Far Eastern Republic / contested administration';
+  if (regionId === 'baltic_frontier') return 'RSFSR frontier administration';
+  if (regionId === 'turkestan') return 'Turkestan ASSR';
+  if (regionId === 'kazakhstan') return 'Kirghiz ASSR (contemporary designation)';
+  return 'Russian SFSR';
 }
 
 export interface ContentBundle {
@@ -196,6 +210,11 @@ export function createCampaign(
       isAlive: true,
       isArrested: false,
       isExiled: false,
+      availability: 'active',
+      currentAgenda: def.positionPeriods[0]?.offices[0] ?? 'Party business',
+      lastAction: 'No autonomous action recorded.',
+      relationshipPressure: 0,
+      knownSecrets: [],
     };
   }
 
@@ -208,6 +227,12 @@ export function createCampaign(
       securityPenetration: def.initialState.securityPenetration,
       bureaucratization: def.initialState.bureaucratization,
       corruption: def.initialState.corruption,
+      attitude: clamp(35 + def.initialState.playerContacts - def.initialState.securityPenetration / 4, 0, 100),
+      autonomy: clamp(100 - def.formalAuthority / 2, 0, 100),
+      activeAgenda: `${def.name} is reviewing post-Congress implementation.`,
+      pendingBusiness: ['Review March directives', 'Report regional compliance'],
+      contactIds: [],
+      lastAction: 'No institutional approach recorded.',
     };
   }
 
@@ -215,6 +240,9 @@ export function createCampaign(
   for (const law of content.laws) {
     laws[law.id] = law.currentLevel;
   }
+
+  const political = initializePoliticalSystems(resources.intelligence);
+  political.factionBlocs = applyBackgroundBlocEffects(political.factionBlocs, settings.background);
 
   return {
     settings,
@@ -244,8 +272,17 @@ export function createCampaign(
     endingId: null,
     rngState: rng.getState(),
     organizerAssignments: {},
+    organizers: political.organizers,
+    factionBlocs: political.factionBlocs,
+    policyProposals: political.policyProposals,
+    factionActionsRemaining: settings.difficulty === 'lenient' ? 3 : 2,
+    politicalActionsRemaining: settings.difficulty === 'historical_hardship' ? 1 : 2,
+    operationCooldowns: {},
+    operationHistory: [],
+    institutionHistory: [],
+    characterCommunications: [],
     monthlyBudget: {},
-    voteState: null,
+    voteState: political.voteState,
     flags: {
       kronstadt_suppressed: true,
       faction_ban_passed: false,

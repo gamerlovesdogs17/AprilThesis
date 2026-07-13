@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getEndingById } from '@april-thesis/content';
-import { loadFromSlot } from '@april-thesis/simulation';
+import { deleteSaveSlot, duplicateSaveSlot, exportSaveToFile, importSaveFromFile, loadFromSlot, quarantineImport, saveToSlot } from '@april-thesis/simulation';
 import { formatGameDate } from '@april-thesis/shared-types';
 import { useGameStore } from '../store/gameStore';
 import styles from './Shell.module.css';
@@ -73,9 +73,17 @@ export function SaveArchivePanel() {
   const loadCampaign = useGameStore(s => s.loadCampaign);
   const [message, setMessage] = useState('');
   useEffect(() => { void refreshSaveSlots(); }, [refreshSaveSlots]);
-  if (!saveSlots.length) return <p>No local saves yet. Manual saves and three rotating autosaves use IndexedDB.</p>;
-  return <div className={styles.menuList}>{saveSlots.map(slot => <button key={slot.id} onClick={async () => {
+  const importFile = async (file?: File) => {
+    if (!file) return;
+    try {
+      const envelope = await importSaveFromFile(file);
+      await saveToSlot(`import-${Date.now()}`, envelope); await refreshSaveSlots(); setMessage(`Imported ${file.name}.`);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Invalid save'; await quarantineImport(file, reason); setMessage(`${reason}. Original placed in quarantine.`);
+    }
+  };
+  return <div><div className={styles.actionRow}><label>Import save <input aria-label="Import save file" type="file" accept="application/json,.json" onChange={e => void importFile(e.target.files?.[0])}/></label></div>{!saveSlots.length ? <p>No local saves yet. Manual saves and three rotating autosaves use IndexedDB.</p> : <div className={styles.menuList}>{saveSlots.slice().sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)).map(slot => <div key={slot.id} className={styles.saveRow}><button onClick={async () => {
     try { const save = await loadFromSlot(slot.id); if (save) loadCampaign(save); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Unable to load save'); }
-  }}><strong>{slot.name}</strong><br/><span>{formatGameDate(slot.date)} · Turn {slot.turnNumber}</span></button>)}{message && <p role="alert">{message}</p>}</div>;
+  }}><strong>{slot.name}</strong><br/><span>{formatGameDate(slot.date)} · Turn {slot.turnNumber}{slot.ironman ? ' · Ironman' : ''}</span></button><button onClick={async () => { const save = await loadFromSlot(slot.id); if (save) exportSaveToFile(save); }}>Export</button><button disabled={slot.ironman} onClick={async () => { await duplicateSaveSlot(slot.id, `copy-${Date.now()}`, `${slot.name} · copy`); await refreshSaveSlots(); }}>Duplicate</button><button disabled={slot.ironman} onClick={async () => { await deleteSaveSlot(slot.id); await refreshSaveSlots(); }}>Delete</button></div>)}</div>}{message && <p role="alert">{message}</p>}</div>;
 }

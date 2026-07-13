@@ -1,78 +1,76 @@
-# Completion Report
+# Completion Report: Phase Two
 
 ## Outcome
 
-The repository has been advanced from a non-building partial foundation to a runnable and genuinely playable March–August 1921 vertical slice. It is not the complete 1921–1924 long campaign.
+The March-August 1921 vertical slice now has functioning political systems instead of passive information panels. A campaign can be configured, played through all six months, and resolved at the September chapter outcome. The original longer 1921-1924 concept is intentionally outside this phase.
 
-## Existing work found and preserved
+## Implemented
 
-- npm-workspaces architecture with React, TypeScript, Vite, Zustand, Zod, SVG, IndexedDB, Vitest, Playwright, and seeded simulation.
-- 28 region records/geometries, 15 characters, eight institutions, 12 laws, 26 events, 15 operations, six publications, and six endings.
-- Intro/title presentation, content schemas, RNG, campaign initialization, map calculations, turn/save utilities.
+### Named people and political organization
 
-## Repaired
+- Eight named fictional-composite organizers have organizing, security, speaking, and research skills; traits; fatigue; exposure; assignment; knowledge; and available, assigned, arrested, recovering, or exiled status.
+- Eight internal blocs have named leaders, support, satisfaction, policy preferences, red lines, underground willingness, split risk, relationship notes, and monthly drift.
+- Faction management has a limited monthly action economy for assignment, cell protection, printing, meetings, institutional work, rest, and budget allocation.
+- Fifteen historical characters now carry agendas, pressure, availability, action history, secrets, relationships, memory, and autonomous monthly behavior.
 
-- Invalid app/store/component imports and six missing screen dependencies.
-- TypeScript project-reference and strict-cast failures.
-- Operation schema/cost mismatch, premature effects, broken target substitution, and nested regional-influence paths.
-- Ending priority/fallback behavior and requirement checks.
-- Save checksum invalidation after timestamp updates.
-- Opening event/phase queuing, faction-response/strategy state, and character decision memory.
-- Production build emitting JavaScript into source directories.
-- Desktop layout that pushed campaign navigation below the viewport.
-- Missing ESLint, asset validation, tests, research docs, and attribution files.
+### Named June vote
 
-## Newly implemented
+- The June Central Committee labor-policy composite is resolved delegate by delegate across 28 named historical or fictional-composite participants.
+- Each delegate exposes office/constituency, bloc, lean, confidence, reliability, concerns, relationship influence, lobbying history, and recorded vote.
+- Meet, mandate, and concede actions have visible costs and consequences. The board reports the threshold, support/oppose/abstain tally, confidence, roll log, and final decision.
+- Resolution is deterministic for a saved campaign seed and applies the linked policy outcome.
 
-- Campaign setup with backgrounds, difficulty, historical constraint, seed, tutorial, and ironman settings.
-- Map-centered game screen with 28 selectable regions, 12 working modes, tooltips, legend, symbols/patterns, uncertainty, and keyboard selection.
-- Regional dossiers and two-per-turn delayed operations with costs, risks, and persistent map effects.
-- Five-phase monthly loop; complete March opening; April–August content scheduling; decision consequences; chapter outcomes.
-- Dynamic biased newspaper clippings, relationship memories, institutional/policy/character/intelligence/economy/faction/decision/source panels, and June vote estimate.
-- Manual saves and three rotating autosaves; archive loading; settings; credits; ending epilogues.
-- 12 automated unit/integration tests and two Chromium end-to-end scenarios.
-- Review screenshot in `docs/review-screenshots/campaign-map-march.png`.
+### Direct policy and institution play
 
-## Verification completed
+- Players can directly campaign for Mandatory Union Consultation, Factory Committee Co-Management, and a Protected Internal Party Press.
+- Proposal support, opposition, campaign investment, political-action costs, immediate effects, and ongoing monthly law effects are visible.
+- All eight institutions expose attitude, autonomy, agenda, current business, contacts, relationship, and last action. Institution actions consume the same limited political economy.
+
+### Operations, map, and information
+
+- Fifteen regional operations now require the correct phase, resources, cooldown, and sometimes organizer skills or intelligence.
+- Assigning an organizer changes visible success/detection chances. Completion can create persistent regional effects, fatigue/exposure, arrest, release, and history entries.
+- The map has 16 selectable modes, complete legends, uncertainty treatment, formal-government labels, and a toggleable blurred influence field.
+- Ten publications support publication/region/topic filters, suppression markers, official-versus-factional contradictions, and links to related entities.
+- Event choices are disabled with explicit reasons when setup, state, or historical-rail requirements are not met.
+
+### Saves and continuity
+
+- Save format 2 adds political state with migration from older envelopes.
+- The archive supports manual save/load, continue-latest, rotating autosaves, duplicate, export, import, delete, checksum validation, and quarantine of rejected imports.
+- Ironman uses one protected campaign slot and blocks duplication/deletion in the manager.
+
+### Guidance and accessibility
+
+- Contextual guided-opening callouts point players toward faction, party, laws, institutions, and operations without blocking normal play.
+- Existing keyboard map selection, visible focus, semantic controls, reduced motion, captions, text scaling, pattern redundancy, and colorblind support were preserved.
+
+## Verification
 
 - `npm run lint`: passed.
-- `npm run validate:all`: passed (typecheck, 12 Vitest tests, asset validation, production build).
-- `npm run test:e2e`: 2/2 passed in Playwright Chromium.
-- Production bundle: 309.45 kB JavaScript (96.18 kB gzip), 21.22 kB CSS (5.44 kB gzip).
-- Manual in-app browser flow: intro skip, campaign start, opening sequence, region selection, map-mode change, operation cost/completion, March-to-April turn, save/load, responsive desktop layout, reduced motion, and console inspection.
-- Browser console in the tested flow: no errors or warnings.
+- `npm run validate:all`: passed.
+  - Workspace TypeScript checks passed.
+  - 19 Vitest tests passed: 14 simulation, three map-engine, and two content tests.
+  - Asset validation passed with no untracked public files.
+  - Production build passed: 347.41 kB JavaScript (107.46 kB gzip) and 24.03 kB CSS (6.02 kB gzip).
+- Manual in-app browser playthrough passed from campaign setup through the September ending. It covered setup gating, faction actions, organizer assignment, operation chances/results, 16 map modes, direct laws, institutions, newspapers, 28 delegates, lobbying, the named roll call, and March-August progression.
+- The final browser page had no current-page errors or warnings. One retained developer-log entry belonged to an earlier stopped Vite tab on port 5173, not the tested port 4174 campaign.
+- Eleven Playwright scenarios are authored. Their final Chromium launch was not executed because the environment's escalation approval service rejected the launch request while its reviewer model was unavailable. They can be run locally with `npm run test:e2e`.
 
-## Historical research
+## Historical handling
 
-The baseline now links primary/archival material for the Tenth Congress and unity resolution, Lenin's tax-in-kind explanation, Hoover Institution famine/ARA holdings, the USSR's December 1922 formation record, and Kronstadt demand texts. It distinguishes historical, plausible, composite, and counterfactual content. Kollontai's office, Stalin's 1921 Secretariat role, Georgia's March status, and 1921 state terminology were corrected.
+Historical rails preserve the adoption of the Tenth Congress unity resolution while allowing plausible strategic responses. Formal government labels distinguish the RSFSR, Soviet republics, autonomous republics, and the Far Eastern Republic instead of flattening the map into a later USSR. The June roster and resolution are explicitly labeled as a composite simulation; names and numeric regional influence are not presented as archival measurements.
 
-## Assets and licenses
+## Backend and assets
 
-No third-party media ships. All visual geometry/patterns and procedural ambience are original. Asset validation passes with zero external files; future assets must include manifest/license metadata.
+No backend was added. Campaigns and saves are deterministic, local-first, and offline-capable. No third-party portraits or recordings ship; the presentation uses original CSS, SVG geometry/patterns, and procedural audio.
 
-## Backend
+## Known limits
 
-No backend was added. The campaign, settings, and saves are local-first and offline-capable; a backend provides no current benefit.
+- The strategic map is an abstract operational diagram, not researched administrative boundary geometry.
+- The long 1921-1924 campaign is not authored beyond this completed chapter.
+- Character secrets, imprisonment, exile, and organizer interpersonal conflict can be deepened further.
+- The composite June decision should not be mistaken for a literal documented roll call.
+- A dedicated screen-reader audit and formal performance trace remain follow-up work.
 
-## Accessibility
-
-Visible focus, keyboard map selection, semantic controls, color/pattern redundancy, reduced motion, captions, text scaling, colorblind patterns, mute/volume settings, and desktop-width fallbacks are present. A dedicated screen-reader audit remains advisable.
-
-## Performance
-
-Map interaction and turn resolution were immediate in the tested 28-region slice. Influence-field calculation exists but the default renderer uses inexpensive SVG/pattern shading. No blocking simulation update was observed. Formal profiling traces were not captured.
-
-## Known limitations
-
-- The long 1921–1924 campaign is not authored.
-- Laws are displayed and event-driven; direct proposal/lobby controls remain future work.
-- The June political vote is a composite estimate/event, not a full named-delegate simulation.
-- Save export/import functions exist in simulation but lack UI controls and quarantine UX.
-- Character autonomous action, arrest/exile, secrets, internal caucus, and institutional agenda systems remain shallow.
-- The map is an original abstract strategic map, not researched administrative boundary geometry.
-- Only the opening through April was manually played during this run; August endings are covered by deterministic tests, not a complete manual six-month playthrough.
-- No historical portraits or audio recordings are included.
-
-## Recommended next step
-
-Implement a full named-delegate June vote and direct policy-proposal loop, then add an accelerated end-to-end August playthrough and save export/import UI. Exact tasks are in `docs/TODO_NEXT.md`.
+See `docs/TODO_NEXT.md` for post-Phase-Two continuation ideas.

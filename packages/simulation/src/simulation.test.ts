@@ -5,6 +5,7 @@ import { SeededRng } from './rng';
 import { createCampaign } from './campaign';
 import { advanceMonth, applyEffects, evaluateEndings, resolveOperations } from './turns';
 import { createSaveEnvelope, validateSaveEnvelope } from './save';
+import { beginPolicyCampaign, campaignForProposal, isEventChoiceEligible, lobbyDelegate, performFactionAction, resolveVote, runPoliticalMonth } from './politics';
 
 const settings: CampaignSettings = {
   simulationMode: 'plausible', difficulty: 'standard', background: 'trade_union_organizer',
@@ -75,5 +76,67 @@ describe('deterministic simulation', () => {
     const corrupt = structuredClone(envelope);
     corrupt.campaign.turnNumber = 99;
     expect(() => validateSaveEnvelope(corrupt)).toThrow(/checksum mismatch/i);
+  });
+
+  it('initializes a named political world instead of aggregate placeholders', () => {
+    const state = campaign();
+    expect(Object.keys(state.organizers)).toHaveLength(8);
+    expect(Object.keys(state.factionBlocs)).toHaveLength(8);
+    expect(state.voteState?.delegates).toHaveLength(28);
+    expect(Object.keys(state.policyProposals)).toHaveLength(3);
+  });
+
+  it('spends a limited faction action and assigns a named organizer', () => {
+    const state = campaign(); state.phase = 'faction_management';
+    const next = performFactionAction(state, 'assign_region', 'anna_sokolova', 'petrograd');
+    expect(next.factionActionsRemaining).toBe(state.factionActionsRemaining - 1);
+    expect(next.organizers.anna_sokolova.assignedRegionId).toBe('petrograd');
+    expect(next.regions.petrograd.influence.workersOpposition).toBeGreaterThan(state.regions.petrograd.influence.workersOpposition);
+  });
+
+  it('enforces phase-gated delegate lobbying and records the actual contact', () => {
+    const blocked = lobbyDelegate(campaign(), 'kamenev', 'private_meeting');
+    expect(blocked.voteState?.log).toHaveLength(0);
+    const state = campaign(); state.phase = 'party_politics';
+    const next = lobbyDelegate(state, 'kamenev', 'private_meeting');
+    expect(next.voteState?.log[0].delegateId).toBe('kamenev');
+    expect(next.voteState?.actionsRemaining).toBe(1);
+  });
+
+  it('resolves every delegate deterministically and stores a named tally', () => {
+    const a = campaign(); const b = campaign(); a.currentDate = '1921-06'; b.currentDate = '1921-06';
+    const resolvedA = resolveVote(a); const resolvedB = resolveVote(b);
+    expect(resolvedA.voteState?.tally).toEqual(resolvedB.voteState?.tally);
+    expect(resolvedA.voteState?.delegates.every(delegate => delegate.resolvedVote)).toBe(true);
+    expect(resolvedA.decisions.at(-1)?.type).toBe('named_delegate_vote');
+  });
+
+  it('runs proposal introduction and institutional campaigning as direct player actions', () => {
+    const state = campaign(); state.phase = 'party_politics';
+    const introduced = beginPolicyCampaign(state, 'factory_voice_campaign');
+    const campaigned = campaignForProposal(introduced, 'factory_voice_campaign');
+    expect(introduced.policyProposals.factory_voice_campaign.stage).toBe('campaigning');
+    expect(campaigned.policyProposals.factory_voice_campaign.support).toBeGreaterThan(introduced.policyProposals.factory_voice_campaign.support);
+    expect(campaigned.politicalActionsRemaining).toBe(0);
+  });
+
+  it('applies institution effect paths and date-appropriate regional governments', () => {
+    const state = campaign();
+    const next = applyEffects(state, { 'institution:vtssps:playerContacts': 9 });
+    expect(next.institutions.vtssps.playerContacts).toBe(state.institutions.vtssps.playerContacts + 9);
+    expect(state.regions.georgia.formalGovernment).toBe('Georgian SSR');
+    expect(state.regions.far_east.formalGovernment).toContain('Far Eastern Republic');
+  });
+
+  it('enforces background-only event choices and renews monthly action economies', () => {
+    const state = campaign();
+    const opening = getContentBundle().events.find(event => event.id === 'opening_strategy_choice')!;
+    expect(isEventChoiceEligible(state, opening, 'underground').eligible).toBe(false);
+    state.settings.background = 'underground_printer';
+    expect(isEventChoiceEligible(state, opening, 'underground').eligible).toBe(true);
+    state.factionActionsRemaining = 0; state.politicalActionsRemaining = 0;
+    const next = runPoliticalMonth(state);
+    expect(next.factionActionsRemaining).toBe(2);
+    expect(next.politicalActionsRemaining).toBe(2);
   });
 });

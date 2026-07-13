@@ -1,5 +1,6 @@
 import type { SaveEnvelope, CampaignState } from '@april-thesis/shared-types';
 import { SAVE_VERSION, GAME_VERSION, CONTENT_VERSION } from '@april-thesis/shared-types';
+import { initializePoliticalSystems } from './politics';
 
 export function computeChecksum(data: string): string {
   let hash = 0;
@@ -45,12 +46,33 @@ export function validateSaveEnvelope(data: unknown): SaveEnvelope {
 }
 
 export function migrateSave(envelope: SaveEnvelope): SaveEnvelope {
-  const migrated = { ...envelope };
+  const migrated = structuredClone(envelope);
   if (migrated.saveVersion < SAVE_VERSION) {
     migrated.saveVersion = SAVE_VERSION;
   }
   if (!migrated.campaign.flags) migrated.campaign.flags = {};
   if (!migrated.campaign.decisions) migrated.campaign.decisions = [];
+  const campaign = migrated.campaign;
+  const political = initializePoliticalSystems(campaign.resources.intelligence);
+  campaign.organizers ??= political.organizers;
+  campaign.factionBlocs ??= political.factionBlocs;
+  campaign.policyProposals ??= political.policyProposals;
+  campaign.voteState ??= political.voteState;
+  campaign.factionActionsRemaining ??= 2;
+  campaign.politicalActionsRemaining ??= 2;
+  campaign.operationCooldowns ??= {};
+  campaign.operationHistory ??= [];
+  campaign.institutionHistory ??= [];
+  campaign.characterCommunications ??= [];
+  for (const character of Object.values(campaign.characters)) {
+    character.availability ??= character.isArrested ? 'arrested' : character.isExiled ? 'exiled' : 'active';
+    character.currentAgenda ??= 'Party business'; character.lastAction ??= 'No autonomous action recorded.';
+    character.relationshipPressure ??= 0; character.knownSecrets ??= [];
+  }
+  for (const institution of Object.values(campaign.institutions)) {
+    institution.attitude ??= 35; institution.autonomy ??= 40; institution.activeAgenda ??= 'Implement current directives';
+    institution.pendingBusiness ??= []; institution.contactIds ??= []; institution.lastAction ??= 'No institutional approach recorded.';
+  }
   return migrated;
 }
 
@@ -64,8 +86,9 @@ export interface SaveSlot {
 }
 
 const DB_NAME = 'april-thesis-saves';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'saves';
+const QUARANTINE_STORE = 'quarantine';
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -77,6 +100,7 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'id' });
       }
+      if (!db.objectStoreNames.contains(QUARANTINE_STORE)) db.createObjectStore(QUARANTINE_STORE, { keyPath: 'id' });
     };
   });
 }
@@ -138,6 +162,23 @@ export async function deleteSaveSlot(id: string): Promise<void> {
     tx.objectStore(STORE_NAME).delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function duplicateSaveSlot(sourceId: string, targetId: string, name: string): Promise<void> {
+  const source = await loadFromSlot(sourceId);
+  if (!source) throw new Error('Source save not found');
+  const copy = createSaveEnvelope(structuredClone(source.campaign), name);
+  await saveToSlot(targetId, copy);
+}
+
+export async function quarantineImport(file: File, reason: string): Promise<void> {
+  const db = await openDb();
+  const raw = await file.text().catch(() => '');
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUARANTINE_STORE, 'readwrite');
+    tx.objectStore(QUARANTINE_STORE).put({ id: `quarantine-${Date.now()}`, fileName: file.name, reason, raw, createdAt: new Date().toISOString() });
+    tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
   });
 }
 

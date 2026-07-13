@@ -14,7 +14,8 @@ export function TitleScreen() {
 
   const handleContinue = async () => {
     if (saveSlots.length > 0) {
-      const envelope = await loadFromSlot(saveSlots[0].id);
+      const latest = saveSlots.slice().sort((a,b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+      const envelope = await loadFromSlot(latest.id);
       if (envelope) loadCampaign(envelope);
     }
   };
@@ -39,7 +40,7 @@ export function TitleScreen() {
           onClick={handleContinue}
           disabled={saveSlots.length === 0}
         >
-          Continue {saveSlots.length > 0 ? `(${saveSlots[0].name})` : ''}
+          Continue {saveSlots.length > 0 ? `(${saveSlots.slice().sort((a,b) => b.updatedAt.localeCompare(a.updatedAt))[0].name})` : ''}
         </button>
         <button className={styles.menuBtn} onClick={() => setScreen('archive')}>
           Archive

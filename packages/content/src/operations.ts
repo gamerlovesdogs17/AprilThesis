@@ -40,4 +40,8 @@ export const publications: PublicationDefinition[] = [
   { id: 'regional_press', name: 'Regional Worker Press', bias: 'Local conditions', reliability: 60, accessLevel: 'public', audience: 'Local workers', visualStyle: 'regional-plain' },
   { id: 'foreign_socialist', name: 'Vorwärts (Foreign Socialist)', bias: 'International socialist', reliability: 65, accessLevel: 'restricted', audience: 'International readers', visualStyle: 'foreign-serif' },
   { id: 'cheka_digest', name: 'Cheka Internal Digest', bias: 'Security assessment', reliability: 70, accessLevel: 'classified', audience: 'Security apparatus', visualStyle: 'classified-black' },
+  { id: 'ekonomicheskaya_zhizn', name: 'Ekonomicheskaya Zhizn', bias: 'Economic administration', reliability: 62, accessLevel: 'public', audience: 'Managers and officials', visualStyle: 'economic-tan' },
+  { id: 'bednota', name: 'Bednota', bias: 'Pro-poor-peasant party press', reliability: 48, accessLevel: 'public', audience: 'Peasants and rural officials', visualStyle: 'rural-brown' },
+  { id: 'petrogradskaya_pravda', name: 'Petrogradskaya Pravda', bias: 'Zinoviev-aligned Petrograd committee', reliability: 42, accessLevel: 'public', audience: 'Petrograd party and workers', visualStyle: 'official-red' },
+  { id: 'railway_bulletin', name: 'Railway Workers’ Bulletin', bias: 'Union and transport conditions', reliability: 58, accessLevel: 'restricted', audience: 'Railway locals', visualStyle: 'worker-blue' },
 ];
