@@ -9,6 +9,7 @@ The sole machine-readable manifest is `apps/web/public/assets/assets-manifest.js
 | Ambience, effects, interface cues | `scripts/generate-audio-assets.mjs` | Original deterministic PCM synthesis |
 | Seven music tracks | `scripts/generate-audio-assets.mjs` | Original deterministic instrumental score |
 | Thirteen portraits | Individually verified Wikimedia Commons files | Public domain or CC0; local copies |
+| Workers' Opposition pamphlet | 1921 IWW English edition, Internet Archive scan via Wikimedia Commons | Public domain; local title-page facsimile |
 
 ## Portraits
 
@@ -18,7 +19,9 @@ The project does not alter source pixels, colorize, or claim restoration. CSS us
 
 ## Workers' Opposition emblem research
 
-Searches of the faction's 1921 texts, scholarly overview material, Wikimedia Commons, and general historical records located pamphlets, leaders, and union context but no documented distinct faction badge, flag, or logo. This is an inference from the reviewed record, not proof that no informal mark ever existed. The game therefore uses a typographic identity and leader portraits; its code-native mark is labeled a modern interface insignia in the intro, campaign, setup, and credits.
+Searches of the faction's 1921 texts, scholarly overview material, Wikimedia Commons, and general historical records located pamphlets, leaders, and union context but no documented distinct faction badge, flag, or logo. This is an inference from the reviewed record, not proof that no informal mark ever existed. The game therefore uses a typographic identity, an explicitly modern `WO` interface abbreviation where tiny identification is necessary, leader portraits, and the public-domain title page of Alexandra Kollontai's 1921 *The Workers Opposition in Russia*. The facsimile is always described as a historical faction document or platform pamphlet, never an official logo.
+
+The exact publication month of the English IWW edition has not been established. It is therefore `documentaryOnly` and appears as modern archival framing rather than an object asserted to be physically present in March 1921. Full provenance, rights, modifications, and date-availability fields are recorded in `apps/web/public/assets/documents/sources.json`.
 
 ## Reproduction
 

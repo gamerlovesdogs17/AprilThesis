@@ -38,7 +38,7 @@ import {
 import type { EventDefinition } from '@april-thesis/content-schema';
 import { getContentBundle, getEventById } from '@april-thesis/content';
 import { audioManager } from '../audio/audioManager';
-import { clampTutorialStep, TUTORIAL_STEPS } from '../tutorial/tutorialSystem';
+import { canAdvanceTutorial, clampTutorialStep, TUTORIAL_STEPS } from '../tutorial/tutorialSystem';
 
 export type Screen = 'intro' | 'title' | 'setup' | 'game' | 'archive' | 'settings' | 'credits' | 'ending';
 export type AuxiliaryScreen = 'archive' | 'settings' | 'credits';
@@ -68,6 +68,7 @@ interface GameStore {
   closeAuxiliary: () => void;
   returnToTitle: () => void;
   startCampaign: (settings: CampaignSettings) => void;
+  startGuidedTutorial: () => void;
   loadCampaign: (envelope: { campaign: CampaignState }) => void;
   setPhase: (phase: TurnPhase) => void;
   advancePhase: () => void;
@@ -84,6 +85,8 @@ interface GameStore {
   pauseTutorial: () => void;
   skipTutorial: () => void;
   restartTutorial: () => void;
+  recordTutorialMilestone: (milestone: string) => void;
+  dismissTutorialEnd: () => void;
   dismissHint: (hintId: string, permanently?: boolean) => void;
   resetHints: () => void;
   resolveEventChoice: (eventId: string, choiceId: string) => void;
@@ -126,6 +129,12 @@ const defaultPrefs: UserPreferences = {
 };
 
 const ACTIVE_SESSION_KEY = 'april-thesis-active-session-v4';
+export const GUIDED_TUTORIAL_SEED = 'april-thesis-guided-tutorial-march-1921-v1';
+
+function addTutorialMilestone(campaign: CampaignState, milestone: string): CampaignState {
+  if (campaign.settings.tutorialMode !== 'guided_tutorial' || campaign.tutorialMilestones.includes(milestone)) return campaign;
+  return { ...campaign, tutorialMilestones:[...campaign.tutorialMilestones,milestone] };
+}
 
 interface ActiveSession {
   campaign: CampaignState;
@@ -146,6 +155,9 @@ function loadActiveSession(): ActiveSession | null {
     const session = JSON.parse(raw) as ActiveSession;
     if (!session.wasActive || !session.campaign?.settings?.seed) return null;
     session.campaign.tutorialPaused ??= false;
+    session.campaign.tutorialMilestones ??= [];
+    session.campaign.tutorialEndPanelDismissed ??= false;
+    session.campaign.settings.tutorialMode ??= session.campaign.settings.tutorialEnabled ? 'guided_opening' : 'none';
     session.campaign.dismissedHintIds ??= [];
     return session;
   } catch {
@@ -247,8 +259,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ campaign, preferences, screen:'game', overlayScreen:null, selectedRegionId:null, selectedCharacterId:null, bottomGroup:'situation', bottomTab:'economy', campaignDirty:true });
   },
 
+  startGuidedTutorial: () => {
+    const preferences = get().preferences;
+    get().startCampaign({
+      simulationMode:'historical', difficulty:'standard', background:'trade_union_organizer',
+      tutorialEnabled:true, tutorialMode:'guided_tutorial', seed:GUIDED_TUTORIAL_SEED,
+      ironman:false, reducedMotion:preferences.reducedMotion, glossaryEnabled:true,
+      contentWarnings:true, autosaveFrequency:1,
+    });
+    const campaign = get().campaign;
+    if (!campaign) return;
+    const nextPreferences = { ...get().preferences, beginnerHintMode:'every_campaign' as const };
+    savePreferences(nextPreferences as unknown as Record<string, unknown>);
+    set({
+      campaign:{ ...campaign, phase:'faction_management', objectives:['Complete the guided March round','Learn the province atlas','Secure a manual save'] },
+      preferences:nextPreferences,
+    });
+  },
+
   loadCampaign: (envelope) => {
     envelope.campaign.tutorialPaused ??= false;
+    envelope.campaign.tutorialMilestones ??= [];
+    envelope.campaign.tutorialEndPanelDismissed ??= false;
+    envelope.campaign.settings.tutorialMode ??= envelope.campaign.settings.tutorialEnabled ? 'guided_opening' : 'none';
     envelope.campaign.dismissedHintIds ??= [];
     set({ campaign:envelope.campaign, screen:'game', overlayScreen:null, campaignDirty:false });
   },
@@ -272,18 +305,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
     let next = { ...current, phase: nextPhase };
+    if (nextPhase === 'consequences') next = addTutorialMilestone(next,'reached-consequences');
     next = queueMonthEvents(next, content.events);
     next = processPendingEvent(next);
     set({ campaign: next, campaignDirty:true });
   },
 
   selectRegion: (id) => set({ selectedRegionId: id, selectedCharacterId: null }),
-  selectCharacter: (id) => set({ selectedCharacterId: id, selectedRegionId: null }),
+  selectCharacter: (id) => {
+    const campaign=get().campaign;
+    set({ selectedCharacterId:id, selectedRegionId:null, ...(campaign&&id?{campaign:addTutorialMilestone(campaign,'character-opened'),campaignDirty:true}:{}) });
+  },
   setMapMode: (mode) => set({ mapMode: mode }),
   toggleLeftSidebar: () => set(s => ({ leftSidebarCollapsed: !s.leftSidebarCollapsed })),
   toggleBottomWorkspace: () => set(s => ({ bottomWorkspaceCollapsed:!s.bottomWorkspaceCollapsed })),
   setBottomGroup: (group, tab) => set({ bottomGroup:group, ...(tab ? { bottomTab:tab } : {}) }),
-  setBottomTab: (tab) => set({ bottomTab: tab }),
+  setBottomTab: (tab) => set({ bottomTab:tab }),
 
   setTutorialStep: (step) => {
     const campaign = get().campaign; if (!campaign) return;
@@ -292,8 +329,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   nextTutorialStep: () => {
     const campaign = get().campaign; if (!campaign || campaign.tutorialComplete) return;
+    const step=TUTORIAL_STEPS[campaign.tutorialStep];
+    if(step&&!canAdvanceTutorial(campaign,step))return;
     if (campaign.tutorialStep >= TUTORIAL_STEPS.length - 1) {
-      if (campaign.turnNumber > 1) set({ campaign:{ ...campaign, tutorialStep:TUTORIAL_STEPS.length - 1, tutorialComplete:true, tutorialPaused:false }, campaignDirty:true });
+      if (campaign.turnNumber > 1) set({ campaign:{ ...campaign, tutorialStep:TUTORIAL_STEPS.length - 1, tutorialComplete:true, tutorialPaused:false, tutorialEndPanelDismissed:false }, campaignDirty:true });
       return;
     }
     set({ campaign:{ ...campaign, tutorialStep:campaign.tutorialStep + 1, tutorialPaused:false }, campaignDirty:true });
@@ -311,12 +350,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   skipTutorial: () => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign:{ ...campaign, tutorialComplete:true, tutorialPaused:false }, campaignDirty:true });
+    set({ campaign:{ ...campaign, tutorialComplete:true, tutorialPaused:false, tutorialEndPanelDismissed:campaign.settings.tutorialMode==='guided_tutorial' }, campaignDirty:true });
   },
 
   restartTutorial: () => {
     const campaign = get().campaign; if (!campaign) return;
+    if (campaign.settings.tutorialMode === 'guided_tutorial') { get().startGuidedTutorial(); return; }
     set({ campaign:{ ...campaign, settings:{ ...campaign.settings, tutorialEnabled:true }, tutorialStep:0, tutorialComplete:false, tutorialPaused:false }, campaignDirty:true });
+  },
+
+  recordTutorialMilestone: (milestone) => {
+    const campaign=get().campaign; if(!campaign)return;
+    const next=addTutorialMilestone(campaign,milestone);
+    if(next!==campaign)set({campaign:next,campaignDirty:true});
+  },
+
+  dismissTutorialEnd: () => {
+    const campaign=get().campaign;if(!campaign)return;
+    set({campaign:{...campaign,tutorialEndPanelDismissed:true},campaignDirty:true});
   },
 
   dismissHint: (hintId, permanently=false) => {
@@ -374,6 +425,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       choiceId: choice.id,
     });
     next.completedEventIds.push(eventId);
+    next = addTutorialMilestone(next,'event-resolved');
     next.pendingEventIds = next.pendingEventIds.filter(id => id !== eventId);
     next.currentEventId = null;
 
@@ -465,12 +517,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       next.organizerAssignments[organizerId] = regionId;
     }
 
-    set({ campaign: next, campaignDirty:true });
+    set({ campaign:addTutorialMilestone(next,'operation-started'), campaignDirty:true });
   },
 
   performFactionAction: (action, organizerId, targetId) => {
     const campaign = get().campaign; if (!campaign) return;
-    set({ campaign: performFactionAction(campaign, action, organizerId, targetId), campaignDirty:true });
+    let next=performFactionAction(campaign, action, organizerId, targetId);
+    if(next!==campaign&&action==='assign_region')next=addTutorialMilestone(next,'organizer-assigned');
+    set({ campaign:next, campaignDirty:true });
   },
 
   lobbyDelegate: (delegateId, action) => {
@@ -509,8 +563,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   saveGame: async (slotId, name) => {
-    const { campaign } = get();
+    let { campaign } = get();
     if (!campaign) return;
+    campaign=addTutorialMilestone(campaign,'save-created');
+    set({campaign});
     const effectiveSlot = campaign.settings.ironman ? 'ironman-campaign' : slotId;
     const envelope = createSaveEnvelope(campaign, campaign.settings.ironman ? `Ironman · ${campaign.settings.seed}` : name);
     await saveToSlot(effectiveSlot, envelope);
@@ -532,6 +588,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     next = afterOps;
 
     next = advanceMonth(next);
+    next = addTutorialMilestone(next,'round-finished');
     next = runPoliticalMonth(next);
     next = appendCampaignSnapshot(next);
     next = queueMonthEvents(next, content.events);
@@ -562,7 +619,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ campaign: { ...campaign, currentEventId: eventId }, campaignDirty:true });
   },
 
-  dismissTurnSummary: () => set({ turnSummary: null, pendingNewspaper: null }),
+  dismissTurnSummary: () => {
+    const campaign=get().campaign;
+    set({ turnSummary:null, pendingNewspaper:null, ...(campaign?{campaign:addTutorialMilestone(campaign,'monthly-consequences-reviewed')}:{}) });
+  },
   setAudioEnabled: (enabled) => set({ audioEnabled: enabled }),
 }));
 

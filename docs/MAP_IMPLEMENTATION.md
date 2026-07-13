@@ -1,23 +1,25 @@
 # Map Implementation
 
-## Sources and topology
+## Separation of historical display and simulation
 
-Natural Earth provides the exterior land/coast context. Authored strategic composites, city records, rivers, railways, projection helpers, and validation live in `packages/content/src/geography.ts`. Adjacency is derived from collinear shared boundary segments. Development builds expose a boundary/ID overlay and live topology status.
+The 28 strategic region IDs remain the stable simulation aggregates. They drive state, AI, operations, save compatibility, and political calculations but no longer supply the visible internal administrative labels or normal boundary strokes.
 
-## View hierarchy
+`packages/content/src/historicalProvinces.ts` defines 88 dated units through `HistoricalProvince`: period name, alternate names, government, administrative type, simulation aggregate mapping, GeoJSON polygon or multipolygon, capital, validity interval, sources, confidence, and notes. `isProvinceActive()` selects the units valid for the campaign month. Every source ID resolves to a dated source record.
 
-- **National** below 130%: only 10 nationally essential city candidates, primary rail corridors, and priority region labels.
-- **Regional** from 130%: priority-two cities, secondary rail branches, and more region labels.
-- **Province focus** from 200% with a selected region: the region and immediate neighbors, local city labels, and derived factory/rail/port/union/security/garrison symbols.
+The national renderer clips each generalized province geometry to its hidden simulation aggregate. This prevents the display geometry from leaking across the playable land surface while keeping the aggregate topology invisible in production. A development-only debug overlay can reveal the 28 aggregates.
 
-`layoutCityLabels()` sorts the selected region first, then essential status and authored priority. Approximate label boxes suppress collisions. Hidden labels remain available on hover/focus of their city dots. “Show all city labels” is an explicit preference.
+## Two map surfaces
 
-## Interaction
+The **National atlas** shows dated administrative units, political reach, period city names, rivers, railways, uncertainty, and operations. A province selector is the primary administrative navigation. Labels use a collision pass and only appear at appropriate scale; the 10 essential national cities remain the restrained overview set.
 
-Wheel and button zoom are pointer-anchored and clamped to 85–400%. Pointer pan starts only after a five-pixel threshold, prevents browser text selection, and does not trigger a region choice at drag end. Single selection centers at a regional scale; double-click, Enter, the focus menu, and Fit region use province scale. Escape, `0`, National view, and the legend return control restore overview. Zoom and pan survive reloads in session storage; no view value enters the seeded campaign.
+**Province detail** is a separate local atlas, not a national-map zoom. It normalizes the selected province geometry into its own drawing surface and adds a local ledger, rail and river context, and named sites. City, factory, railway, port, union, security, and garrison sites use distinct SVG pictograms. The former F/R/P/U/S/G map glyphs are gone.
 
-Political mode uses a unified burgundy territorial surface with clipped faction reach above it. Contested intelligence hatching, internal borders, selected/neighbor emphasis, rivers, rail tiers, operations, and labels remain independently legible. The political overlay is explicitly organizational reach, not sovereignty.
+All map controls stay above the active-decision overlay. The dossier begins below the atlas toolbar so map and event controls remain independently usable.
+
+## Accuracy statement
+
+Administrative identities, dates, names, and source relationships are historical. Display geometries are explicitly generalized interpretive vectors prepared for this interface, not cadastral boundary claims. The UI and legend say “generalized display geometry,” and confidence is shown in the province ledger. The source basis and limits are detailed in `docs/HISTORICAL_PROVINCE_MAP.md`.
 
 ## Validation
 
-Unit coverage checks zoom tiers, selected-label precedence, collision suppression, region/city parity, topology errors, projection bounds, and historical names. Browser scenarios cover zoom, focus, national return, layers, label density, local symbols, drag behavior, and settings return.
+Unit coverage checks unique IDs, source resolution, dated activation, GeoJSON path output, aggregate mapping, strategic topology, city projection, collision logic, and historical names. Browser coverage checks selection, the dedicated province transition, local atlas semantics, zoom/reset, layer toggles, drag behavior, accessible controls, and screenshot capture.

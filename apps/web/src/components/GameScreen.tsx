@@ -17,7 +17,7 @@ import { SaveArchivePanel } from './AuxiliaryScreens';
 import { GeographicMap } from './GeographicMap';
 import { InstitutionalBalanceChart, NationalDashboard, RegionalComparisonChart, VoteSeatingChart } from './PoliticalCharts';
 import { audioManager } from '../audio/audioManager';
-import { BeginnerHint, TutorialOverlay } from './GuidedOverlays';
+import { BeginnerHint, TutorialCompletionPanel, TutorialOverlay } from './GuidedOverlays';
 import styles from './GameScreen.module.css';
 
 const MAP_MODES: MapMode[] = [
@@ -160,7 +160,7 @@ function RegionPanel() {
       const resources = campaign.resources as unknown as Record<string, number>;
       const eligibility = getOperationEligibility(campaign, op, region.id, organizerId || undefined);
       const affordable = Object.entries(op.cost).every(([key,value]) => resources[key] >= value) && activeThisTurn < 2 && eligibility.eligible;
-      return <button key={op.id} disabled={!affordable} onClick={() => startOperation(region.id, op.id, organizerId || undefined)} title={eligibility.reason || op.description}>
+      return <button key={op.id} data-tutorial="risk-readout" disabled={!affordable} onClick={() => startOperation(region.id, op.id, organizerId || undefined)} title={eligibility.reason || op.description}>
         <strong>{op.name}</strong><span>{op.duration} turn{op.duration === 1 ? '' : 's'} · {Object.entries(op.cost).map(([k,v]) => `${humanize(k)} ${v}`).join(' · ') || 'no cost'}</span>
         <em>{eligibility.eligible ? `${eligibility.successChance}% success · ${eligibility.detectionChance}% detection` : eligibility.reason}</em>
       </button>;
@@ -185,9 +185,9 @@ function EventDrawer() {
   const content = useGameStore(s => s.content);
   const resolveEventChoice = useGameStore(s => s.resolveEventChoice);
   const researchMode = useGameStore(s => s.preferences.researchMode);
-  const [mode, setMode] = useState<'compact'|'expanded'|'minimized'>('compact');
+  const [mode, setMode] = useState<'compact'|'expanded'|'minimized'>(campaign.settings.tutorialMode === 'guided_tutorial' ? 'minimized' : 'compact');
   const event = content.events.find(item => item.id === campaign.currentEventId);
-  useEffect(() => setMode('compact'), [event?.id]);
+  useEffect(() => setMode(campaign.settings.tutorialMode === 'guided_tutorial' ? 'minimized' : 'compact'), [campaign.settings.tutorialMode, event?.id]);
   if (!event) return null;
   if (mode === 'minimized') return <button className={styles.eventTelegram} data-testid="event-minimized" onClick={() => setMode('compact')}><span>Pending decision</span><strong>{event.title}</strong><em>Open dossier</em></button>;
   return <aside className={`${styles.eventDrawer} ${mode === 'expanded' ? styles.eventExpanded : ''}`} data-testid="event-dossier" data-tutorial="event-dossier" aria-label="Active decision" aria-live="polite">
@@ -205,21 +205,24 @@ function BottomPanel() {
   const collapsed = useGameStore(s => s.bottomWorkspaceCollapsed);
   const setGroup = useGameStore(s => s.setBottomGroup);
   const setTab = useGameStore(s => s.setBottomTab);
+  const recordTutorialMilestone = useGameStore(s => s.recordTutorialMilestone);
   const toggle = useGameStore(s => s.toggleBottomWorkspace);
   const researchMode = useGameStore(s => s.preferences.researchMode);
   const group = DOCK_GROUPS.find(item => item.id === groupId) ?? DOCK_GROUPS[0];
   const selectedTab = group.tabs.some(([id]) => id === tab) ? tab : group.tabs[0][0];
   useEffect(() => { if (selectedTab !== tab) setTab(selectedTab); }, [selectedTab, setTab, tab]);
+  const chooseGroup=(id:string,firstTab:string)=>{setGroup(id,firstTab);if(id==='organization')recordTutorialMilestone('faction-management-opened');};
+  const chooseTab=(id:string)=>{setTab(id);if(id==='institutions')recordTutorialMilestone('institution-opened');if(id==='laws')recordTutorialMilestone('policy-opened');};
   const navigateGroups = (event: KeyboardEvent<HTMLElement>) => {
     if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
     event.preventDefault();
     const index = DOCK_GROUPS.findIndex(item => item.id === group.id);
     const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? DOCK_GROUPS.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + DOCK_GROUPS.length) % DOCK_GROUPS.length;
-    const nextGroup = DOCK_GROUPS[nextIndex]; setGroup(nextGroup.id, nextGroup.tabs[0][0]);
+    const nextGroup = DOCK_GROUPS[nextIndex]; chooseGroup(nextGroup.id, nextGroup.tabs[0][0]);
   };
   return <section className={`${styles.bottomPanel} ${collapsed ? styles.bottomCollapsed : ''}`} data-testid="command-dock">
-    <div className={styles.dockHeader}><nav aria-label="Campaign command groups" onKeyDown={navigateGroups}>{DOCK_GROUPS.map(item => <button key={item.id} data-tutorial={`dock-${item.id}`} aria-pressed={group.id === item.id} className={group.id === item.id ? styles.activeGroup : ''} onClick={() => setGroup(item.id,item.tabs[0][0])}><i>{item.icon}</i><span>{item.label}</span>{item.id === 'press' && campaign.newspapers.length > 0 && <b>{campaign.newspapers.length}</b>}</button>)}</nav><button className={styles.collapseDock} data-testid="toggle-command-dock" onClick={toggle} title="Toggle bottom workspace (Alt+B)">{collapsed ? 'Expand workspace' : 'Collapse workspace'}</button></div>
-    {!collapsed && <nav className={styles.subnav} aria-label={`${group.label} sections`}>{group.tabs.map(([id,label]) => <button key={id} data-tutorial={id === 'characters' ? 'characters-view' : id === 'institutions' ? 'institutions-view' : id === 'laws' ? 'laws-view' : id === 'party' ? 'politics-view' : undefined} className={selectedTab === id ? styles.activeTab : ''} onClick={() => setTab(id)}>{label}</button>)}</nav>}
+    <div className={styles.dockHeader}><nav aria-label="Campaign command groups" onKeyDown={navigateGroups}>{DOCK_GROUPS.map(item => <button key={item.id} aria-label={item.label} data-tutorial={`dock-${item.id}`} aria-pressed={group.id === item.id} className={group.id === item.id ? styles.activeGroup : ''} onClick={() => chooseGroup(item.id,item.tabs[0][0])}><i aria-hidden="true">{item.icon}</i><span>{item.label}</span>{item.id === 'press' && campaign.newspapers.length > 0 && <b>{campaign.newspapers.length}</b>}</button>)}</nav><button className={styles.collapseDock} data-testid="toggle-command-dock" onClick={toggle} title="Toggle bottom workspace (Alt+B)">{collapsed ? 'Expand workspace' : 'Collapse workspace'}</button></div>
+    {!collapsed && <nav className={styles.subnav} aria-label={`${group.label} sections`}>{group.tabs.map(([id,label]) => <button key={id} data-tutorial={id === 'characters' ? 'characters-view' : id === 'institutions' ? 'institutions-view' : id === 'laws' ? 'laws-view' : id === 'party' ? 'politics-view' : undefined} className={selectedTab === id ? styles.activeTab : ''} onClick={() => chooseTab(id)}>{label}</button>)}</nav>}
     {!collapsed && <div className={styles.tabContent}>
       {selectedTab === 'economy' && <><NationalDashboard campaign={campaign}/><details className={styles.ledger}><summary>Detailed economic ledger</summary><DataCards items={[
         ['Industrial production', campaign.nationalStats.industrialProduction], ['Agricultural production', campaign.nationalStats.agriculturalProduction], ['Grain reserves', campaign.nationalStats.grainReserves], ['Urban food supply', campaign.nationalStats.urbanFoodSupply], ['Inflation', campaign.nationalStats.inflation], ['Black market', campaign.nationalStats.blackMarketActivity], ['Infrastructure', campaign.nationalStats.infrastructure], ['State revenue', campaign.nationalStats.stateRevenue],
@@ -336,13 +339,14 @@ export function GameScreen() {
     {notice && <div className={styles.notice} role="status" onAnimationEnd={() => setNotice('')}>{notice}</div>}
     <div className={`${styles.mainGrid} ${leftCollapsed ? styles.mainGridLeftCollapsed : ''}`}>
       <button className={styles.collapseLeft} onClick={toggleLeft} title="Toggle objectives sidebar (Alt+L)">{leftCollapsed ? 'Show objectives' : 'Hide'}</button>
-      {!leftCollapsed && <aside className={styles.leftPanel}><section className={styles.factionIdentity} data-tutorial="faction-identity" aria-label="Player faction identity"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="34"/><path d="M20 51Q40 29 60 51M26 29H54M40 18V61"/></svg><div><p className={styles.kicker}>You organize</p><h1>Workers’ Opposition</h1><span>Modern interface insignia · not a historical emblem</span></div><dl><div><dt>Principal leaders</dt><dd>Kollontai · Shliapnikov · Medvedev</dd></div><div><dt>Your background</dt><dd>{humanize(campaign.settings.background)}</dd></div><div><dt>Opening strategy</dt><dd>{campaign.openingStrategy ? humanize(campaign.openingStrategy) : 'Decision pending'}</dd></div><div><dt>Institutional base</dt><dd>Trade unions · factory committees</dd></div></dl></section>{campaign.settings.tutorialEnabled && !campaign.tutorialComplete && campaign.tutorialPaused && <button className={styles.resumeTutorial} onClick={() => setTutorialStep(campaign.tutorialStep)}>Resume tutorial at step {campaign.tutorialStep + 1}</button>}<h2>Immediate objectives</h2><ol>{campaign.objectives.map(item => <li key={item}>{item}</li>)}</ol><h3>Active operations</h3>{campaign.activeOperations.length ? campaign.activeOperations.map(op => <div className={styles.activeOperation} key={op.id}><strong>{humanize(op.operationId)}</strong><span>{humanize(op.regionId)} · {op.turnsRemaining} turn(s){op.organizerId ? ` · ${campaign.organizers[op.organizerId]?.name}` : ''}</span></div>) : <p className={styles.muted}>No operations in motion.</p>}<h3>Immediate threats</h3><p className={campaign.resources.exposure > 60 ? styles.warning : styles.muted}>{campaign.resources.exposure > 60 ? 'Security attention is approaching a raid threshold.' : 'Surveillance remains serious but contained.'}</p><h3>Turn structure</h3><ul className={styles.phaseList}>{Object.entries(PHASE_LABELS).map(([key,label]) => <li className={campaign.phase === key ? styles.currentPhase : ''} key={key}>{label}</li>)}</ul></aside>}
+      {!leftCollapsed && <aside className={styles.leftPanel}><section className={styles.factionIdentity} data-tutorial="faction-identity" aria-label="Player faction identity"><figure><img src="/assets/documents/workers-opposition-1921-title-page.jpg" alt="1921 Workers Opposition in Russia pamphlet title page"/><figcaption>Historical platform pamphlet · documentary framing, not a logo</figcaption></figure><div><p className={styles.kicker}>You organize</p><h1>Workers’ Opposition</h1><span>WO is an interface abbreviation · no official emblem documented</span></div><dl><div data-tutorial="faction-leaders"><dt>Principal leaders</dt><dd><img src="/assets/portraits/kollontai.jpg" alt=""/><img src="/assets/portraits/shliapnikov.jpg" alt=""/>Kollontai · Shliapnikov · Medvedev</dd></div><div><dt>Your background</dt><dd>{humanize(campaign.settings.background)}</dd></div><div><dt>Opening strategy</dt><dd>{campaign.openingStrategy ? humanize(campaign.openingStrategy) : 'Decision pending'}</dd></div><div><dt>Institutional base</dt><dd>Trade unions · factory committees</dd></div><div data-tutorial="faction-ban"><dt>Legal position</dt><dd>Faction activity prohibited by the Tenth Congress</dd></div></dl></section>{campaign.settings.tutorialEnabled && !campaign.tutorialComplete && campaign.tutorialPaused && <button className={styles.resumeTutorial} onClick={() => setTutorialStep(campaign.tutorialStep)}>Resume tutorial at step {campaign.tutorialStep + 1}</button>}<h2>Immediate objectives</h2><ol>{campaign.objectives.map(item => <li key={item}>{item}</li>)}</ol><h3>Active operations</h3>{campaign.activeOperations.length ? campaign.activeOperations.map(op => <div className={styles.activeOperation} key={op.id}><strong>{humanize(op.operationId)}</strong><span>{humanize(op.regionId)} · {op.turnsRemaining} turn(s){op.organizerId ? ` · ${campaign.organizers[op.organizerId]?.name}` : ''}</span></div>) : <p className={styles.muted}>No operations in motion.</p>}<h3>Immediate threats</h3><p className={campaign.resources.exposure > 60 ? styles.warning : styles.muted}>{campaign.resources.exposure > 60 ? 'Security attention is approaching a raid threshold.' : 'Surveillance remains serious but contained.'}</p><h3>Turn structure</h3><ul className={styles.phaseList}>{Object.entries(PHASE_LABELS).map(([key,label]) => <li className={campaign.phase === key ? styles.currentPhase : ''} key={key}>{label}</li>)}</ul></aside>}
       <GeographicMap/>
       <aside className={styles.rightPanel}><RegionPanel/></aside>
       <EventDrawer/>
     </div>
     <BottomPanel/>
     {campaign.settings.tutorialEnabled && !campaign.tutorialComplete && !campaign.tutorialPaused && <TutorialOverlay/>}
+    <TutorialCompletionPanel/>
     <BeginnerHint/>
     {turnSummary && <div className={styles.summary} role="dialog" aria-label="Turn report"><p className={styles.kicker}>Monthly resolution</p><h2>Dispatches from the field</h2>{turnSummary.map(line => <p key={line}>{line}</p>)}<button className="primary" onClick={dismissTurnSummary}>Return to map</button></div>}
   </main>;

@@ -1,16 +1,11 @@
-# City Label System
+# City and Province Label System
 
-City metadata supplies stable ID, period name, region, projected coordinate, population category, three importance scores, label priority, optional national-essential status, and optional preferred label offset.
+City metadata supplies a stable ID, period name, simulation region, projected coordinate, population category, importance scores, label priority, optional national-essential status, and preferred offset.
 
-## Density rules
+The national view admits 10 essential city labels: Petrograd, Moscow, Kiev, Rostov-on-Don, Tsaritsyn, Kazan, Omsk, Vladivostok, Tashkent, and Baku. Closer scale admits secondary cities including Tiflis and Novo-Nikolayevsk. Modern names remain tooltip notes. “Show all city labels” is an explicit opt-in and currently exposes all 21 city records.
 
-- National view admits exactly the authored essential set (10 candidates).
-- Regional view admits priority-one/two cities and all cities in the selected region.
-- Province focus admits selected-region cities plus high-priority neighboring cities.
-- “Show all city labels” bypasses eligibility and collision suppression by explicit user choice.
+Eligible city labels are ordered by selected aggregate, national-essential status, priority, and stable ID. Approximate text boxes suppress collisions; the dot remains keyboard focusable, and a suppressed name appears on hover or focus.
 
-Eligible labels are sorted by selected-region status, national-essential status, priority, then stable ID. An approximate monospace text box is placed at the preferred/default offset. A label is suppressed if its box collides with a previously accepted label. The dot remains keyboard-focusable and its hidden label appears on hover/focus, so collision management does not remove access.
+Province labels run through a separate collision pass over the 88 dated administrative units. They do not compete with old strategic-region names because those names are no longer rendered in the normal atlas. Province detail uses its own site-label surface and ledger.
 
-The 10 national essentials are Petrograd, Moscow, Kiev, Rostov-on-Don, Tsaritsyn, Kazan, Omsk, Vladivostok, Tashkent, and Baku. Other period names such as Tiflis and Novo-Nikolayevsk appear at closer scales; modern names remain tooltip notes.
-
-Map-engine unit tests verify tier thresholds, national eligibility, collision removal, and selected-region precedence. Browser coverage checks overview density, focus detail, and the opt-in all-label mode.
+Tests cover overview density, all-label opt-in, secondary period names, projected bounds, and selection priority.

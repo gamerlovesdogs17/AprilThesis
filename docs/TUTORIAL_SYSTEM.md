@@ -1,32 +1,37 @@
 # Tutorial System
 
-The tutorial is persisted campaign state, not a transient paragraph. It uses `tutorialStep`, `tutorialComplete`, and `tutorialPaused`; save version 4 migrates older envelopes without resetting existing completion state.
+## Two deliberately different modes
 
-## Sequence
+**GUIDED TUTORIAL** is a standalone main-menu command directly below New Campaign. It starts a deterministic March 1921 historical campaign as the Trade-Union Organizer with standard difficulty, seed `april-thesis-guided-tutorial-march-1921-v1`, ironman off, monthly autosave, beginner hints on, and `tutorialMode: guided_tutorial`.
 
-1. Identify the Workers' Opposition.
-2. Explain the player's organizer role.
-3. Show the five monthly phases.
-4. Select a strategic region.
-5. Explain zoom and drag.
-6. Change map modes and read the legend.
-7. Open Organization.
-8. Assign an organizer.
-9. Review a regional operation.
-10. Explain exposure and security.
-11. Open a character dossier.
-12. Inspect an institution.
-13. Inspect a policy proposal.
-14. Explain limited political actions.
-15. Resolve a narrative event.
-16. Advance phases.
-17. Save the campaign.
-18. Advance from March into April.
+**Guided Opening** remains an ordinary campaign-setup option. It preserves the player’s chosen background, seed, difficulty, simulation mode, and ironman setting and uses `tutorialMode: guided_opening`. It is not described as the complete tutorial.
 
-Each step has a DOM target, placement, progress bar, Back, Next, Close, and Skip. View-specific steps open the correct command group; assignment/operation steps select Petrograd if no region is selected; collapsed sidebars/workspaces reopen when their target is required; a minimized event reopens for its tutorial step. The final step cannot complete until the campaign reaches turn two.
+## Persisted 21-step sequence
 
-Close pauses without marking completion. Skip marks the tutorial complete. Settings can restart at step one. Escape closes/pauses. Active-session and save persistence resume the same step after reload or load.
+1. Identify the Workers’ Opposition.
+2. Understand the organizer role.
+3. Identify Kollontai, Shliapnikov, and Medvedev.
+4. Understand the Tenth Congress faction ban.
+5. Read the national atlas.
+6. Select a dated historical province.
+7. Enter the dedicated province atlas.
+8. Inspect a local city or organizational site.
+9. Open faction management.
+10. Assign an organizer.
+11. Enter Regional Operations and start real work.
+12. Read success and detection risk separately.
+13. Compare exposure with security.
+14. Open a character dossier.
+15. Inspect an institution.
+16. Review a policy proposal.
+17. Resolve a narrative event.
+18. Advance to Consequences.
+19. Review the March consequences.
+20. Create a manual save.
+21. Advance into April and finish the round.
 
-## Beginner hints
+Required interactions write named entries to `tutorialMilestones`; Next remains disabled until the relevant milestone exists. Tutorial step, completion, pause state, milestones, and end-panel state are campaign data and survive active-session reload and save/load. Save version 5 migrates older campaigns additively and derives `tutorialMode` from the old boolean where necessary.
 
-Hints are a separate system. Modes are Off, First campaign only, and Every new campaign. At most one phase-relevant hint appears, tutorial steps suppress hints, ordinary dismissal is per campaign, and “Do not show this again” writes the hint ID to user preferences. Settings can restore hidden hints.
+Close pauses. Escape pauses. Skip completes without showing the end panel. Normal completion presents Continue this campaign, Start a normal new campaign, Restart tutorial, and Return to main menu. Tutorial saves display a badge in the save manager.
+
+The active decision begins minimized in the structured tutorial so the atlas remains readable. It opens automatically at the event lesson. Beginner hints remain a separate system with Off, First campaign only, and Every campaign modes.

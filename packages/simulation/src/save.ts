@@ -69,6 +69,9 @@ export function migrateSave(envelope: SaveEnvelope): SaveEnvelope {
   campaign.tutorialStep ??= campaign.settings.tutorialEnabled ? 0 : -1;
   campaign.tutorialComplete ??= !campaign.settings.tutorialEnabled;
   campaign.tutorialPaused ??= false;
+  campaign.tutorialMilestones ??= [];
+  campaign.tutorialEndPanelDismissed ??= false;
+  campaign.settings.tutorialMode ??= campaign.settings.tutorialEnabled ? 'guided_opening' : 'none';
   campaign.dismissedHintIds ??= [];
   for (const character of Object.values(campaign.characters)) {
     character.availability ??= character.isArrested ? 'arrested' : character.isExiled ? 'exiled' : 'active';
@@ -89,6 +92,7 @@ export interface SaveSlot {
   turnNumber: number;
   updatedAt: string;
   ironman: boolean;
+  tutorial: boolean;
 }
 
 const DB_NAME = 'april-thesis-saves';
@@ -154,6 +158,7 @@ export async function listSaveSlots(): Promise<SaveSlot[]> {
         turnNumber: r.envelope.campaign.turnNumber,
         updatedAt: r.envelope.updatedAt,
         ironman: r.envelope.campaign.settings.ironman,
+        tutorial: r.envelope.campaign.settings.tutorialMode === 'guided_tutorial',
       }));
       resolve(slots);
     };

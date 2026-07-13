@@ -3,12 +3,19 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 async function launchCampaign(page: Page, background?: string, tutorial=false) {
-  await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ introViewed: true, muted: true, reducedMotion: true })));
+  await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ introViewed: true, muted: true, reducedMotion: true, beginnerHintMode: 'off' })));
   await page.goto('/');
   await page.getByRole('button', { name: 'New Campaign' }).click();
   if (background) await page.getByRole('radio', { name: new RegExp(background, 'i') }).click();
-  if (!tutorial) await page.getByLabel('Guided opening').uncheck();
-  await page.getByRole('button', { name: 'Open your faction dossier' }).click();
+  if (!tutorial) {
+    const guidedOpening = page.getByLabel('Guided opening');
+    await guidedOpening.uncheck();
+    await expect(guidedOpening).not.toBeChecked();
+  }
+  const launch = page.getByRole('button', { name: 'Open your faction dossier' });
+  await launch.click();
+  if (!(await page.getByTestId('geographic-map').isVisible()) && await launch.isVisible()) await launch.click();
+  await expect(page.getByTestId('geographic-map')).toBeVisible();
 }
 
 async function chooseAndDismiss(page: Page, name: RegExp | string) {
@@ -32,7 +39,7 @@ async function resolveOpening(page: Page) {
 
 test('starts a campaign, resolves the opening, uses the map, and saves', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
-  await page.getByLabel('Focus strategic region').selectOption('petrograd');
+  await page.getByLabel('Select historical province').selectOption('petrograd-governorate');
   await expect(page.getByRole('heading', { name: 'Petrograd' })).toBeVisible();
   await page.getByLabel('Map mode').selectOption('famine_disease');
   await expect(page.getByText('Famine severity and disease burden')).toBeVisible();
@@ -40,7 +47,7 @@ test('starts a campaign, resolves the opening, uses the map, and saves', async (
   await page.getByRole('button', { name: /Next phase/ }).click();
   await page.getByRole('button', { name: /Send Organizer 1 turn/ }).click();
   await expect(page.getByText(/Petrograd · 1 turn/)).toBeVisible();
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact:true }).click();
   await openDock(page,'Saves','Save management');
   await expect(page.getByRole('button', { name: /Manual · March 1921/ })).toBeVisible();
 });
@@ -65,7 +72,7 @@ test('setup background gates strategy choices and changes the dossier', async ({
 
 test('faction phase assigns a named organizer to a selected region', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
-  await page.getByLabel('Focus strategic region').selectOption('petrograd');
+  await page.getByLabel('Select historical province').selectOption('petrograd-governorate');
   await page.getByRole('button', { name: /Next phase/ }).click();
   await openDock(page,'Organization','Faction');
   const anna = page.locator('article').filter({ hasText: 'Anna Sokolova' });
@@ -135,7 +142,7 @@ test('newspaper archive preserves contradictory source metadata and filters', as
 
 test('save manager can duplicate and export a manual slot', async ({ page }) => {
   await launchCampaign(page);
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact:true }).click();
   await openDock(page,'Saves','Save management');
   const manual = page.getByRole('button', { name: /Manual · March 1921/ }).first();
   const row = manual.locator('..');
@@ -146,22 +153,22 @@ test('save manager can duplicate and export a manual slot', async ({ page }) => 
   expect((await download).suggestedFilename()).toMatch(/april-thesis-save/);
 });
 
-test('map zoom, reset, fit-region, and keyboard controls stay clamped', async ({ page }) => {
+test('map zoom, reset, and dedicated province view stay clamped', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
   const zoom = page.getByLabel('Map zoom');
   await expect(zoom).toHaveText('100%');
   for (let i = 0; i < 10; i++) await page.getByTestId('zoom-in').click();
   await expect(zoom).toHaveText('400%');
-  await page.getByLabel('Focus strategic region').selectOption('petrograd');
-  await page.getByTestId('fit-region').click();
-  await expect(zoom).toHaveText('245%');
+  await page.getByLabel('Select historical province').selectOption('petrograd-governorate');
+  await page.getByTestId('enter-province').click();
+  await expect(page.getByTestId('province-detail-view')).toBeVisible();
   await page.getByTestId('reset-map').click();
   await expect(zoom).toHaveText('100%');
 });
 
 test('geographic layers toggle independently and preserve the selected region', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
-  await page.getByLabel('Focus strategic region').selectOption('moscow');
+  await page.getByLabel('Select historical province').selectOption('moscow-governorate');
   await page.getByLabel('cities').uncheck();
   await expect(page.getByTestId('city-layer')).toHaveCount(0);
   await page.getByLabel('cities').check();
@@ -173,7 +180,7 @@ test('geographic layers toggle independently and preserve the selected region', 
 
 test('map uses historical city names and reveals secondary labels on zoom', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
-  await expect(page.locator('[data-city-id="novonikolayevsk-city"]')).toHaveCount(1);
+  await expect(page.locator('[data-city-id="novonikolayevsk-city"]')).toHaveCount(0);
   await page.getByTestId('zoom-in').click();
   await page.getByTestId('zoom-in').click();
   await expect(page.locator('[data-city-id="novonikolayevsk-city"]')).toContainText('Novo-Nikolayevsk');
@@ -183,7 +190,7 @@ test('map uses historical city names and reveals secondary labels on zoom', asyn
 test('campaign keeps faction identity visible before and after the opening choices', async ({ page }) => {
   await launchCampaign(page, 'Trade-Union Organizer');
   await expect(page.getByLabel('Player faction identity')).toContainText('Workers’ Opposition');
-  await expect(page.getByLabel('Player faction identity')).toContainText('not a historical emblem');
+  await expect(page.getByLabel('Player faction identity')).toContainText('no official emblem documented');
   await resolveOpening(page);
   await expect(page.getByLabel('Player faction identity')).toContainText('Trade Union Mobilization');
 });
@@ -280,16 +287,16 @@ test('railway and political influence layers toggle from real controls', async (
 
 test('selected region exposes comparison data for adjacent regions', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
-  await page.getByLabel('Focus strategic region').selectOption('petrograd');
+  await page.getByLabel('Select historical province').selectOption('petrograd-governorate');
   const comparison = page.getByRole('heading', { name: 'Regional comparison' }).locator('..');
   await expect(comparison).toBeVisible();
-  await expect(comparison).toContainText(/baltic frontier/i);
+  await expect(comparison).toContainText(/moscow/i);
   await expect(comparison).toContainText(/karelia/i);
 });
 
 test('imports and loads a pre-Phase-Three save through the archive', async ({ page }) => {
   await launchCampaign(page);
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact:true }).click();
   await openDock(page,'Saves','Save management');
   const manual = page.getByRole('button', { name: /Manual · March 1921/ }).first();
   const downloadEvent = page.waitForEvent('download');
@@ -323,16 +330,15 @@ test('plays a full month and records history without console errors', async ({ p
 });
 
 test('captures final national, western, Caucasus, Siberian, and workspace review views', async ({ page }) => {
-  const output = resolve('../../docs/review-screenshots/phase-four-after');
+  const output = resolve('../../docs/review-screenshots/phase-five-after');
   await launchCampaign(page); await resolveOpening(page);
   await page.screenshot({ path: resolve(output, 'main-political-map.png') });
-  for (const [region, file] of [['moscow','western-russia-zoom.png'],['georgia','caucasus-zoom.png'],['western_siberia','siberia-zoom.png']] as const) {
-    await page.getByLabel('Focus strategic region').selectOption(region);
-    await page.getByTestId('fit-region').click();
+  for (const [province, file] of [['moscow-governorate','western-russia-province.png'],['georgian-ssr','caucasus-province.png'],['omsk-governorate','siberia-province.png']] as const) {
+    await page.getByLabel('Select historical province').selectOption(province);
+    await page.getByTestId('enter-province').click();
     await page.screenshot({ path: resolve(output, file) });
+    await page.getByTestId('reset-map').click();
   }
-  await page.getByTestId('reset-map').click();
-  await page.getByLabel('Focus strategic region').selectOption('');
   await page.screenshot({ path: resolve(output, 'city-labels.png') });
   await page.getByLabel('Map mode').selectOption('railway_infrastructure');
   await page.screenshot({ path: resolve(output, 'railway-layer.png') });

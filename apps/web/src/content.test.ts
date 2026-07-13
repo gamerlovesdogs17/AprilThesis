@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getContentBundle, validateStrategicGeography } from '@april-thesis/content';
+import { getContentBundle, getProvincePath, isProvinceActive, validateStrategicGeography } from '@april-thesis/content';
 
 describe('vertical-slice content', () => {
   it('ships a playable six-month chapter', () => {
@@ -55,5 +55,19 @@ describe('vertical-slice content', () => {
     expect(content.characters.filter(character=>character.portraitPath)).toHaveLength(13);
     expect(content.characters.filter(character=>!character.portraitPath).map(character=>character.id).sort()).toEqual(['medvedev','myasnikov']);
     expect(content.characters.filter(character=>character.portraitPath).every(character=>character.portraitPath?.startsWith('/assets/portraits/'))).toBe(true);
+  });
+
+  it('ships a separate dated historical-province layer with source-backed metadata', () => {
+    const content = getContentBundle();
+    const regionIds = new Set(content.regions.map(region => region.id));
+    const sourceIds = new Set(content.provinceSources.map(source => source.id));
+    const provinceIds = content.historicalProvinces.map(province => province.id);
+    expect(content.historicalProvinces).toHaveLength(88);
+    expect(new Set(provinceIds).size).toBe(provinceIds.length);
+    expect(content.provinceSources.length).toBeGreaterThanOrEqual(4);
+    expect(content.historicalProvinces.every(province => regionIds.has(province.strategicRegionId))).toBe(true);
+    expect(content.historicalProvinces.every(province => province.sourceIds.length > 0 && province.sourceIds.every(id => sourceIds.has(id)))).toBe(true);
+    expect(content.historicalProvinces.every(province => /^\d{4}-\d{2}$/.test(province.validFrom) && getProvincePath(province).startsWith('M'))).toBe(true);
+    expect(content.historicalProvinces.filter(province => isProvinceActive(province, '1921-03')).length).toBeGreaterThanOrEqual(80);
   });
 });

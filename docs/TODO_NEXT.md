@@ -1,10 +1,9 @@
-# TODO Next
+# Remaining Human Review
 
-These are the remaining acceptance checks, not a request to expand scope.
+Phase Five implementation and automated acceptance are complete. These are the remaining human or archival refinements, not missing gameplay systems.
 
-1. Run `npm run test:e2e` in an environment allowed to open the local Vite URL; confirm all 42 scenarios and inspect any selector drift.
-2. Run the Phase Four screenshot scenario to populate `docs/review-screenshots/phase-four-after/`, then compare every requested map, dock, event, portrait, tutorial, settings, archive, intro, and audio-settings state against the baseline.
-3. Complete one manual seeded March–August 1921 campaign, including save/reload, Settings/Archive return, a named organizer operation, political action, policy campaign, vote, famine context, and an ending.
-4. Listen through every score loop and crossfade on speakers and headphones; synthesis is deterministic but has not received a human audio mastering pass.
-5. Conduct a dedicated screen-reader and narrow-laptop audit. Mobile work in Phase Four targets the cinematic; the campaign remains a desktop strategy layout.
-6. Optional research: locate a clearly identified period portrait for Sergei Medvedev and a better dated circa-1921 Tomsky photograph. Do not replace fallbacks with uncertain subjects.
+1. Complete a human click-by-click March–August playthrough. The managed in-app browser was stopped before this final manual pass; automated browser coverage verifies a complete month and the simulation suite verifies all six chapter turns and ending selection.
+2. Conduct speaker/headphone mastering for every score loop and crossfade.
+3. Conduct a dedicated screen-reader audit beyond the automated roles, labels, keyboard navigation, and viewport checks.
+4. If cartographic exactness beyond the current disclosed generalized atlas is required, trace higher-resolution province vectors directly against the Troitsky/NKVD sheet and record per-feature control points. Do not relabel the current display geometry as cadastral.
+5. Optional research: locate a securely identified period portrait for Sergei Medvedev and a more precisely dated circa-1921 Tomsky photograph. Do not substitute uncertain subjects.

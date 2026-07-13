@@ -51,7 +51,7 @@ describe('deterministic simulation', () => {
     delete (envelope.campaign as Partial<typeof envelope.campaign>).historySnapshots;
     delete envelope.checksum;
     const migrated = migrateSave(envelope);
-    expect(migrated.saveVersion).toBe(4);
+    expect(migrated.saveVersion).toBe(5);
     expect(migrated.campaign.historySnapshots).toHaveLength(1);
     expect(migrated.campaign.currentDate).toBe('1921-03');
   });

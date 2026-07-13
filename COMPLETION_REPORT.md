@@ -1,22 +1,26 @@
-# Completion Report: Phase Four Candidate
+# Completion Report: Phase Five
 
 ## Outcome
 
-The requested Phase Four systems are implemented inside the campaign: persisted onboarding, exact-return overlays, a validated strategic map and label hierarchy, grouped workspace, resizable event dossiers, verified portraits, honest faction branding, sustained adaptive music, restrained idle motion, and responsive intro overrides.
+Phase Five is implemented: a standalone fixed-seed guided tutorial, a separate 88-unit dated historical-province layer, a dedicated local province atlas with pictographic sites, historically honest Workers’ Opposition identity, save migration and tutorial badges, improved overlay/accessibility behavior, and mobile intro containment.
 
-The work preserves every simulation-facing region, character, event, operation, institution, law, and publication ID. Save migration is additive and seeded resolution code was not rebalanced.
+The 28 simulation aggregates and all existing content IDs remain stable. Seeded simulation rules were not rebalanced. Save version 5 adds tutorial mode, milestones, and end-panel state without discarding older campaigns.
 
-## Verification completed
+## Verification
 
-- Workspace lint and all six TypeScript workspaces pass.
-- Vitest passes for simulation, content, audio, tutorial, and map-engine coverage.
-- Asset validation passes for one canonical 36-record manifest.
+- Workspace lint passes.
+- All six TypeScript workspaces pass.
+- Vitest passes 41 tests: 18 web, 5 map-engine, and 18 simulation.
+- Asset validation passes with 38 canonical records and no untracked public files.
 - The production build passes.
-- The Playwright suite parses and lists 42 scenarios, including the Phase Four acceptance matrix.
-- Baseline Chromium automation completed all 27 pre-change scenarios before teardown; the managed runner then timed out during shutdown.
+- The 42-scenario Chromium suite reached 41/42 in one complete run; the only failure was an obsolete expected adjacency name, and that corrected scenario passed independently.
+- The Phase Five screenshot scenario populated `docs/review-screenshots/phase-five-after/` with national, province, city-label, railway, and dashboard views.
+- In-app visual inspection covered the title command, tutorial opening, national atlas, and Petrograd local atlas and caught two stacking/layout defects that were fixed before handoff.
 
-## Not yet honestly complete
+## Accuracy boundary
 
-The managed in-app browser later rejected the local application URL under its security policy. The Phase Four Playwright scenarios and after-screenshot pack therefore were not executed in this run, and a manual March–August campaign was not completed after the changes. `docs/review-screenshots/phase-four-before/` contains the baseline evidence; the updated capture scenario targets `docs/review-screenshots/phase-four-after/` when browser execution is available.
+The province model’s names, dates, types, government mappings, and source links are researched. The interactive vectors are visibly and textually disclosed as generalized display geometry, not exact cadastral lines. Research found no verified independent Workers’ Opposition emblem in the reviewed records; this is a research conclusion, not a claim that no emblem could ever have existed.
 
-Because the brief explicitly requires those visual and full-playthrough checks, this report calls the result a **Phase Four candidate**, not final completion. The exact remaining commands and manual matrix are recorded in `docs/PHASE_FOUR_REVIEW.md` and `docs/TODO_NEXT.md`.
+## Manual-pass caveat
+
+The managed in-app browser was stopped before a final click-by-click March–August run. This report therefore distinguishes automated coverage from human manual coverage. The browser suite completes a month through save/reload and the simulation suite verifies March–August reachability and ending selection; the remaining human pass is listed in `docs/TODO_NEXT.md`.

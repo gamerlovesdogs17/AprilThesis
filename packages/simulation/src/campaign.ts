@@ -270,6 +270,8 @@ export function createCampaign(
     tutorialStep: settings.tutorialEnabled ? 0 : -1,
     tutorialComplete: !settings.tutorialEnabled,
     tutorialPaused: false,
+    tutorialMilestones: [],
+    tutorialEndPanelDismissed: false,
     dismissedHintIds: [],
     gameOver: false,
     endingId: null,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { nextHintForCampaign, TUTORIAL_STEPS, tutorialProgress } from '../tutorial/tutorialSystem';
+import { canAdvanceTutorial, nextHintForCampaign, TUTORIAL_STEPS, tutorialProgress } from '../tutorial/tutorialSystem';
 import styles from './GuidedOverlays.module.css';
 
 interface TargetRect { top:number; left:number; width:number; height:number }
@@ -19,6 +19,7 @@ export function TutorialOverlay() {
   const toggleBottom = useGameStore(s => s.toggleBottomWorkspace);
   const [rect, setRect] = useState<TargetRect | null>(null);
   const step = TUTORIAL_STEPS[campaign.tutorialStep] ?? TUTORIAL_STEPS[0];
+  const structured = campaign.settings.tutorialMode === 'guided_tutorial';
 
   useEffect(() => {
     const views: Record<string, [string,string]> = {
@@ -26,12 +27,12 @@ export function TutorialOverlay() {
       'character-dossier':['organization','characters'], 'institution':['organization','institutions'],
       'policy':['politics','laws'], 'political-actions':['politics','party'],
     };
-    const view = views[step.id]; if (view) setBottomGroup(view[0], view[1]);
+    const view = views[step.id]; if (view && !structured) setBottomGroup(view[0], view[1]);
     if (view && bottomCollapsed) toggleBottom();
-    if (['identify-faction','organizer-role'].includes(step.id) && leftCollapsed) toggleLeft();
+    if (['identify-faction','organizer-role','identify-leaders','faction-ban'].includes(step.id) && leftCollapsed) toggleLeft();
     if (['assign-organizer','regional-operation'].includes(step.id) && !useGameStore.getState().selectedRegionId) selectRegion('petrograd');
     if (step.id==='narrative-event') document.querySelector<HTMLElement>('[data-testid="event-minimized"]')?.click();
-  }, [bottomCollapsed,leftCollapsed,selectRegion,setBottomGroup,step.id,toggleBottom,toggleLeft]);
+  }, [bottomCollapsed,leftCollapsed,selectRegion,setBottomGroup,step.id,structured,toggleBottom,toggleLeft]);
 
   useEffect(() => {
     const update = () => {
@@ -64,15 +65,26 @@ export function TutorialOverlay() {
   }, [rect, step.placement]);
 
   const finalStep = campaign.tutorialStep === TUTORIAL_STEPS.length - 1;
+  const ready = canAdvanceTutorial(campaign,step);
   return <div className={styles.tutorialLayer} aria-live="polite">
     {rect && <div className={styles.spotlight} style={{ top:rect.top-6, left:rect.left-6, width:rect.width+12, height:rect.height+12 }}/>} 
     <section className={styles.callout} style={calloutStyle} role="dialog" aria-label={`Tutorial step ${campaign.tutorialStep + 1} of ${TUTORIAL_STEPS.length}`}>
       <div className={styles.progressLine}><span style={{width:`${tutorialProgress(campaign.tutorialStep)}%`}}/></div>
       <p>Step {campaign.tutorialStep + 1} of {TUTORIAL_STEPS.length}</p><h2>{step.title}</h2><p>{step.body}</p>
-      {finalStep && campaign.turnNumber === 1 && <small>Advance from consequences into April to finish this step.</small>}
-      <div className={styles.calloutActions}><button onClick={pause}>Close</button><button onClick={skip}>Skip tutorial</button><button disabled={campaign.tutorialStep === 0} onClick={back}>Back</button><button className="primary" disabled={finalStep && campaign.turnNumber === 1} onClick={next}>{finalStep ? 'Complete' : 'Next'}</button></div>
+      {!ready && <small>Complete the highlighted interaction to unlock the next step.</small>}
+      <div className={styles.calloutActions}><button onClick={pause}>Close</button><button onClick={skip}>Skip tutorial</button><button disabled={campaign.tutorialStep === 0} onClick={back}>Back</button><button className="primary" disabled={!ready} onClick={next}>{finalStep ? 'Complete' : 'Next'}</button></div>
     </section>
   </div>;
+}
+
+export function TutorialCompletionPanel() {
+  const campaign=useGameStore(s=>s.campaign)!;
+  const dismiss=useGameStore(s=>s.dismissTutorialEnd);
+  const startTutorial=useGameStore(s=>s.startGuidedTutorial);
+  const setScreen=useGameStore(s=>s.setScreen);
+  const returnToTitle=useGameStore(s=>s.returnToTitle);
+  if(campaign.settings.tutorialMode!=='guided_tutorial'||!campaign.tutorialComplete||campaign.tutorialEndPanelDismissed)return null;
+  return <div className={styles.completionLayer} role="dialog" aria-modal="true" aria-labelledby="tutorial-complete-title"><section className={styles.completionCard}><p>Guided tutorial complete</p><h2 id="tutorial-complete-title">The April round is now yours</h2><span>The structured scenario is finished. This deterministic campaign can continue under the normal historical rules.</span><div><button className="primary" onClick={dismiss}>Continue this campaign</button><button onClick={()=>setScreen('setup')}>Start a normal new campaign</button><button onClick={startTutorial}>Restart tutorial</button><button onClick={returnToTitle}>Return to main menu</button></div></section></div>;
 }
 
 export function BeginnerHint() {

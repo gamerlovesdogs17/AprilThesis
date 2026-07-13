@@ -5,6 +5,8 @@ import { events } from './events';
 import { operations, endings, publications } from './operations';
 import { mapGeometries, getRegionPath } from './mapGeometry';
 import { cities, rivers, railways, seas, geographicContext } from './geography';
+import { historicalProvinces, provinceSources } from './historicalProvinces';
+import { historicalAssets } from './historicalAssets';
 
 // Attach map paths to region definitions
 export const regionsWithPaths = regions.map(r => ({
@@ -21,8 +23,10 @@ export const regionsWithPaths = regions.map(r => ({
   }],
 }));
 
-export { regions, characters, institutions, laws, events, operations, endings, publications, mapGeometries, getRegionPath, cities, rivers, railways, seas, geographicContext };
+export { regions, characters, institutions, laws, events, operations, endings, publications, mapGeometries, getRegionPath, cities, rivers, railways, seas, geographicContext, historicalProvinces, provinceSources, historicalAssets };
 export * from './geography';
+export * from './historicalProvinces';
+export * from './historicalAssets';
 export { regionsWithPaths as gameRegions };
 
 export function getContentBundle() {
@@ -41,6 +45,9 @@ export function getContentBundle() {
     railways,
     seas,
     geographicContext,
+    historicalProvinces,
+    provinceSources,
+    historicalAssets,
   };
 }
 

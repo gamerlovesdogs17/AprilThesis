@@ -1,0 +1,22 @@
+{
+  "assets": [
+    {
+      "id": "workers-opposition-1921-iww-title-page",
+      "localPath": "/assets/documents/workers-opposition-1921-title-page.jpg",
+      "exactTitle": "The Workers Opposition in Russia",
+      "author": "A. Kolontay (Alexandra Kollontai)",
+      "publicationDate": "1921",
+      "language": "English",
+      "publisher": "Industrial Workers of the World, Chicago",
+      "source": "https://commons.wikimedia.org/wiki/File:Alexandra_Kollontai_-_The_Workers_Opposition_in_Russia_(1921).djvu",
+      "originalRepository": "Internet Archive, case_hd_8055_i4_r67_box_004",
+      "rightsStatus": "Public domain; Wikimedia Commons marks the scan PD-US-expired and the author died more than 70 years ago",
+      "modifications": "Wikimedia Commons JPEG page preview downloaded at 900px target width; no project pixel edits; CSS display crop only",
+      "historicalDate": "1921",
+      "availableFrom": "1921-01",
+      "documentaryOnly": true,
+      "campaignAvailabilityNote": "The exact 1921 English-edition publication month has not been established. The image is shown as modern documentary framing and an archival faction document, not as an object proven to have been present in a March 1921 room.",
+      "identityUse": "Historical faction document / platform pamphlet / archival facsimile; never an official logo"
+    }
+  ]
+}

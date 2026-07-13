@@ -1,15 +1,15 @@
 # Visual System
 
-Phase Four retains dark red, ink, cream paper, muted gold, dossiers, stamps, and restrained constructivist geometry while reducing interface competition.
+Phase Five keeps the dark red, ink, cream paper, muted gold, dossier, stamp, and restrained constructivist language while giving each information layer a clearer job.
 
-- The campaign header shows phase progress, essential metrics, save state, settings, and advance controls.
-- Five command groups replace the scrolling row; their secondary tabs and content share one bounded workspace that can collapse.
-- The event dossier begins compact, expands for context, and minimizes to a telegram without blocking the map.
-- The national map is a coherent burgundy land surface. Faction colors communicate organizational reach, not territorial sovereignty.
-- City/region detail grows with zoom instead of being permanently visible. Selected places, neighbors, operations, and uncertainty dominate the hierarchy.
-- Thirteen historical portraits appear selectively in dossiers and the faction intro. Every fallback names itself as a designed silhouette.
-- The Workers' Opposition wordmark and leader imagery carry identity. The small code-native mark always discloses its modern status.
+- The title menu has a visually distinct **GUIDED TUTORIAL** command immediately after New Campaign.
+- Workers’ Opposition identity uses a 1921 public-domain platform-pamphlet facsimile, a typographic wordmark, and dated documentary portraits. No invented circular mark occupies the role of an official emblem.
+- The campaign atlas separates historical administrative display from hidden strategic computation.
+- Province detail uses a warm paper local map and a structured ledger rather than magnifying the national surface.
+- Local map meaning comes from pictograms and full labels, not letter markers.
+- The event dossier begins below the atlas toolbar and can expand or minimize without making either control set unusable.
+- Five explicit accessible command labels decouple dock names from their decorative single-letter icons.
 
-Idle motion is restrained to occasional city glow, rail-signal travel, operation pulses, cinematic paper/telegraph effects, and phase emphasis. The ambient-effects preference disables the map additions; `prefers-reduced-motion` removes nonessential map and cinematic animation.
+Kollontai’s 1923 portrait is labeled documentary-only wherever it establishes faction identity. The 1921 pamphlet is also documentary framing and is never described as an emblem or as an object proven present in a March room.
 
-Phase Four adds safe-area and short-height intro rules. The required 1440×900, 1280×720, 1024×768, and mobile viewport checks exist in Playwright but await execution in an environment permitted to open the local app.
+Motion remains limited to city glow, rail signal travel, operation pulses, phase emphasis, and cinematic effects. Reduced-motion settings remove nonessential animation. The opposition intro now constrains its grid, identity copy, and leader column at 390 px so the heading remains within the viewport.

@@ -2,11 +2,15 @@ import { expect, test, type Page } from '@playwright/test';
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-async function startCampaign(page:Page,tutorial=false){
-  await page.addInitScript(()=>localStorage.setItem('april-thesis-preferences',JSON.stringify({introViewed:true,muted:true,reducedMotion:true,beginnerHintMode:'first_campaign',campaignsStarted:0})));
-  await page.goto('/');await page.getByRole('button',{name:'New Campaign'}).click();
-  if(!tutorial)await page.getByLabel('Guided opening').uncheck();
-  await page.getByRole('button',{name:'Open your faction dossier'}).click();
+async function startCampaign(page:Page,tutorial=false,hints=false){
+  await page.addInitScript((showHints)=>localStorage.setItem('april-thesis-preferences',JSON.stringify({introViewed:true,muted:true,reducedMotion:true,beginnerHintMode:showHints?'first_campaign':'off',campaignsStarted:0})),hints);
+  await page.goto('/');
+  if(tutorial){await page.getByRole('button',{name:/GUIDED TUTORIAL/}).click();return;}
+  await page.getByRole('button',{name:'New Campaign'}).click();
+  if(!tutorial){const guidedOpening=page.getByLabel('Guided opening');await guidedOpening.uncheck();await expect(guidedOpening).not.toBeChecked();}
+  const launch=page.getByRole('button',{name:'Open your faction dossier'});await launch.click();
+  if(!(await page.getByTestId('geographic-map').isVisible())&&await launch.isVisible())await launch.click();
+  await expect(page.getByTestId('geographic-map')).toBeVisible();
 }
 
 async function resolveOpening(page:Page){
@@ -15,18 +19,17 @@ async function resolveOpening(page:Page){
 
 async function openDock(page:Page,group:string,tab:string){await page.getByRole('button',{name:group,exact:true}).click();await page.getByRole('button',{name:tab,exact:true}).click();}
 
-test('complete first-turn tutorial persists all eighteen steps',async({page})=>{
+test('guided tutorial starts the fixed scenario and gates its province interaction',async({page})=>{
   await startCampaign(page,true);
-  await expect(page.getByRole('dialog',{name:'Tutorial step 1 of 18'})).toBeVisible();
-  for(let step=1;step<15;step+=1)await page.getByRole('button',{name:'Next',exact:true}).click();
-  await expect(page.getByRole('dialog',{name:'Tutorial step 15 of 18'})).toBeVisible();
-  await resolveOpening(page);
-  for(let step=15;step<18;step+=1)await page.getByRole('button',{name:'Next',exact:true}).click();
-  for(let phase=0;phase<4;phase+=1)await page.getByRole('button',{name:/Next phase/}).click();
-  await page.getByRole('button',{name:/Advance month/}).click();
-  await page.getByRole('button',{name:'Complete'}).click();
-  await expect(page.getByRole('dialog',{name:/Tutorial step/})).toHaveCount(0);
-  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('april-thesis-active-session-v4')??'{}').campaign?.tutorialComplete)).toBe(true);
+  await expect(page.getByRole('dialog',{name:'Tutorial step 1 of 21'})).toBeVisible();
+  await expect(page.getByText('Trade Union Organizer',{exact:true})).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>{const campaign=JSON.parse(localStorage.getItem('april-thesis-active-session-v4')??'{}').campaign;return {date:campaign?.currentDate,phase:campaign?.phase,seed:campaign?.settings?.seed,mode:campaign?.settings?.tutorialMode,ironman:campaign?.settings?.ironman};})).toEqual({date:'1921-03',phase:'faction_management',seed:'april-thesis-guided-tutorial-march-1921-v1',mode:'guided_tutorial',ironman:false});
+  for(let step=1;step<6;step+=1)await page.getByRole('button',{name:'Next',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'Tutorial step 6 of 21'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Next',exact:true})).toBeDisabled();
+  await page.getByLabel('Select historical province').selectOption('petrograd-governorate');
+  await expect(page.getByRole('button',{name:'Next',exact:true})).toBeEnabled();
+  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('april-thesis-active-session-v4')??'{}').campaign?.tutorialMilestones)).toContain('province-selected');
 });
 
 test('skip, close, resume, and restart tutorial remain distinct actions',async({page})=>{
@@ -38,21 +41,20 @@ test('skip, close, resume, and restart tutorial remain distinct actions',async({
   await expect(page.getByRole('dialog',{name:/Tutorial step/})).toHaveCount(0);
   await page.getByRole('button',{name:'Settings'}).click();
   await page.getByRole('button',{name:'Restart tutorial'}).click();
-  await page.getByRole('button',{name:/Return to campaign/}).click();
-  await expect(page.getByRole('dialog',{name:'Tutorial step 1 of 18'})).toBeVisible();
+  await expect(page.getByRole('dialog',{name:'Tutorial step 1 of 21'})).toBeVisible();
 });
 
 test('tutorial progress survives reload and restores its target',async({page})=>{
   await startCampaign(page,true);
   for(let i=0;i<4;i+=1)await page.getByRole('button',{name:'Next',exact:true}).click();
-  await expect(page.getByRole('dialog',{name:'Tutorial step 5 of 18'})).toBeVisible();
+  await expect(page.getByRole('dialog',{name:'Tutorial step 5 of 21'})).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('dialog',{name:'Tutorial step 5 of 18'})).toBeVisible();
+  await expect(page.getByRole('dialog',{name:'Tutorial step 5 of 21'})).toBeVisible();
   await expect(page.locator('.tutorial-target')).toHaveCount(1);
 });
 
 test('permanently dismissed beginner hints stay hidden',async({page})=>{
-  await startCampaign(page,false);
+  await startCampaign(page,false,true);
   const hint=page.getByTestId('beginner-hint');await expect(hint).toBeVisible();
   await hint.getByLabel('Do not show this again.').check();await hint.getByRole('button',{name:'Dismiss'}).click();
   await expect(hint).toHaveCount(0);
@@ -61,7 +63,7 @@ test('permanently dismissed beginner hints stay hidden',async({page})=>{
 
 test('settings overlay returns to the exact map and workspace state',async({page})=>{
   await startCampaign(page,false);await resolveOpening(page);
-  await page.getByLabel('Focus strategic region').selectOption('petrograd');await page.getByLabel('Map mode').selectOption('food_supply');await page.getByTestId('zoom-in').click();
+  await page.getByLabel('Select historical province').selectOption('petrograd-governorate');await page.getByLabel('Map mode').selectOption('food_supply');await page.getByTestId('zoom-in').click();
   await openDock(page,'Organization','Characters');const zoomBefore=await page.getByLabel('Map zoom').textContent();
   await page.getByRole('button',{name:'Settings'}).click();await expect(page.getByText('Campaign paused · no state discarded')).toBeVisible();
   await page.getByRole('button',{name:/Return to campaign/}).click();
@@ -92,21 +94,21 @@ test('research mode alone exposes raw archive identifiers',async({page})=>{
   await page.getByRole('button',{name:'Expand decision dossier'}).click();await page.getByText('Research notes').click();await expect(page.getByTestId('event-dossier')).toContainText('Sources:');
 });
 
-test('national labels stay restrained while province focus reveals local detail',async({page})=>{
+test('national labels stay restrained while province view reveals local detail',async({page})=>{
   await startCampaign(page,false);await resolveOpening(page);
   const national=await page.locator('[data-city-id][data-label-visible="true"]').count();expect(national).toBeGreaterThanOrEqual(8);expect(national).toBeLessThanOrEqual(12);
-  await page.getByLabel('Focus strategic region').selectOption('petrograd');await expect(page.getByLabel('Map zoom')).toHaveText('245%');
-  await expect(page.getByRole('img',{name:/Factory concentration|Rail junction|Trade-union center/}).first()).toBeVisible();await page.getByRole('button',{name:'Return to national view'}).click();await expect(page.getByLabel('Map zoom')).toHaveText('100%');
+  await page.getByLabel('Select historical province').selectOption('petrograd-governorate');await page.getByTestId('enter-province').click();
+  await expect(page.getByTestId('province-detail-view')).toBeVisible();await expect(page.getByRole('img',{name:'Detailed local atlas of Petrograd Governorate'})).toBeVisible();await page.getByTestId('reset-map').click();await expect(page.getByLabel('Map zoom')).toHaveText('100%');
 });
 
 test('all-label preference is opt-in and collision suppression remains the default',async({page})=>{
   await startCampaign(page,false);const before=await page.locator('[data-city-id]').count();
   await page.getByRole('button',{name:'Settings'}).click();await page.getByLabel('Show all city labels').check();await page.getByRole('button',{name:/Return to campaign/}).click();
-  await expect(page.locator('[data-city-id]')).toHaveCount(20);expect(before).toBeLessThan(20);
+  await expect(page.locator('[data-city-id]')).toHaveCount(21);expect(before).toBeLessThan(21);
 });
 
 test('selecting, focusing, and dragging do not create text selection or accidental region changes',async({page})=>{
-  await startCampaign(page,false);await resolveOpening(page);await page.getByLabel('Focus strategic region').selectOption('moscow');
+  await startCampaign(page,false);await resolveOpening(page);await page.getByLabel('Select historical province').selectOption('moscow-governorate');
   const map=page.getByTestId('geographic-map');const box=await map.boundingBox();expect(box).not.toBeNull();
   await page.mouse.move(box!.x+box!.width*.45,box!.y+box!.height*.45);await page.mouse.down();await page.mouse.move(box!.x+box!.width*.7,box!.y+box!.height*.6,{steps:6});await page.mouse.up();
   await expect(page.getByRole('heading',{name:'Moscow'})).toBeVisible();expect(await page.evaluate(()=>getSelection()?.toString()??'')).toBe('');

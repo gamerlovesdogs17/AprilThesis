@@ -126,6 +126,6 @@ export function IntroCinematic() {
   </main>;
 }
 
-function FactionMark() { return <div className={phaseFour.factionMarkWrap}><svg viewBox="0 0 72 72" className={styles.factionMark} aria-label="Original Workers’ Opposition game symbol" role="img"><circle cx="36" cy="36" r="30"/><path d="M36 9V18M36 54V63M9 36H18M54 36H63M17 17L23 23M49 49L55 55M55 17L49 23M23 49L17 55"/><circle cx="36" cy="36" r="18"/><path d="M27 46V29L32 25V37L37 34V42L43 38V46Z"/></svg><span>Modern interface insignia · no historical emblem claimed</span></div>; }
+function FactionMark() { return <div className={phaseFour.factionMarkWrap}><b className={phaseFour.factionMonogram}>WO</b><span>Neutral interface abbreviation · no official historical emblem documented</span></div>; }
 
 function LeaderCard({ initials, name, role, portrait, date }: { initials:string; name:string; role:string; portrait?:string; date?:string }) { return <article className={styles.leaderCard}>{portrait?<img className={phaseFour.leaderPortrait} src={portrait} alt={`Historical portrait of ${name}, ${date}`}/>:<div className={styles.portraitFallback}><span>{initials}</span><svg viewBox="0 0 80 100" aria-hidden="true"><circle cx="40" cy="30" r="18"/><path d="M14 96Q16 55 40 54Q64 55 66 96Z"/></svg></div>}<div><strong>{name}</strong><span>{role}</span><small>{portrait?`Public-domain historical photograph · ${date}`:'Designed dossier silhouette · no historical photograph claimed'}</small></div></article>; }

@@ -56,6 +56,7 @@ export type HistoricalClassification =
   | 'fictional_composite';
 
 export type BeginnerHintMode = 'off' | 'first_campaign' | 'every_campaign';
+export type TutorialMode = 'none' | 'guided_opening' | 'guided_tutorial';
 
 export interface HistoricalMetadata {
   classification: HistoricalClassification;
@@ -313,6 +314,8 @@ export interface CampaignSettings {
   difficulty: Difficulty;
   background: PlayerBackground;
   tutorialEnabled: boolean;
+  /** Added in save v5. Older saves infer this from tutorialEnabled. */
+  tutorialMode?: TutorialMode;
   seed: string;
   ironman: boolean;
   reducedMotion: boolean;
@@ -362,6 +365,8 @@ export interface CampaignState {
   tutorialStep: number;
   tutorialComplete: boolean;
   tutorialPaused: boolean;
+  tutorialMilestones: string[];
+  tutorialEndPanelDismissed: boolean;
   dismissedHintIds: string[];
   gameOver: boolean;
   endingId: string | null;
@@ -437,9 +442,9 @@ export interface UserPreferences {
   allCityLabels: boolean;
 }
 
-export const GAME_VERSION = '0.4.0';
-export const CONTENT_VERSION = '0.4.0';
-export const SAVE_VERSION = 4;
+export const GAME_VERSION = '0.5.0';
+export const CONTENT_VERSION = '0.5.0';
+export const SAVE_VERSION = 5;
 export const CAMPAIGN_START_DATE = '1921-03';
 export const CAMPAIGN_END_DATE = '1924-04';
 export const VERTICAL_SLICE_END = '1921-08';

@@ -1,1 +1,29 @@
-.tutorialLayer{position:fixed;inset:0;z-index:250;pointer-events:none}.spotlight{position:fixed;border:2px solid #f2cf83;border-radius:4px;box-shadow:0 0 0 9999px #0605048c,0 0 18px #e3a846;pointer-events:none;transition:all .22s ease}.callout{position:fixed;width:min(316px,calc(100vw - 24px));padding:14px;color:#e9d6b7;background:#21160f;border:1px solid #b88b48;border-left:5px solid #c92b35;box-shadow:7px 9px 24px #000b;pointer-events:auto}.callout>p:first-of-type{margin-top:7px;color:#c39c61;font-size:.55rem;text-transform:uppercase;letter-spacing:.12em}.callout h2{margin:4px 0 6px;color:#f1d5a8;font-size:1.05rem}.callout>p{font-size:.68rem;line-height:1.42;color:#cdbda5}.callout small{display:block;margin-top:6px;color:#e3b96f;font-size:.59rem}.progressLine{height:3px;background:#4a3828}.progressLine span{display:block;height:100%;background:#c52b36}.calloutActions{display:flex;justify-content:flex-end;gap:4px;margin-top:10px;flex-wrap:wrap}.calloutActions button{padding:5px 7px;font-size:.56rem}.hint{position:fixed;z-index:160;right:326px;bottom:232px;width:285px;padding:11px;background:#ead7b8;color:#2b2118;border-left:6px solid #9b1e28;box-shadow:6px 8px 20px #0009}.hint p{color:#8b1a1a;text-transform:uppercase;letter-spacing:.12em;font-size:.52rem}.hint strong,.hint span{display:block}.hint strong{margin:3px 0;font:.82rem var(--font-serif)}.hint span{font-size:.61rem;line-height:1.4}.hint label{display:block;margin:7px 0;font-size:.54rem}.hint button{float:right;padding:4px 7px;font-size:.55rem}.tutorial-target{position:relative;z-index:251!important;outline:2px solid #f0c46f!important;outline-offset:3px!important}@media(max-width:900px){.hint{right:12px;bottom:228px}}@media(prefers-reduced-motion:reduce){.spotlight{transition:none}}
+.tutorialLayer{position:fixed;inset:0;z-index:250;pointer-events:none}
+.spotlight{position:fixed;border:2px solid #f2cf83;border-radius:4px;box-shadow:0 0 0 9999px #0605048c,0 0 18px #e3a846;pointer-events:none;transition:all .22s ease}
+.callout{position:fixed;width:min(316px,calc(100vw - 24px));padding:14px;color:#e9d6b7;background:#21160f;border:1px solid #b88b48;border-left:5px solid #c92b35;box-shadow:7px 9px 24px #000b;pointer-events:auto}
+.callout>p:first-of-type{margin-top:7px;color:#c39c61;font-size:.55rem;text-transform:uppercase;letter-spacing:.12em}
+.callout h2{margin:4px 0 6px;color:#f1d5a8;font-size:1.05rem}
+.callout>p{font-size:.68rem;line-height:1.42;color:#cdbda5}
+.callout small{display:block;margin-top:6px;color:#e3b96f;font-size:.59rem}
+.progressLine{height:3px;background:#4a3828}
+.progressLine span{display:block;height:100%;background:#c52b36}
+.calloutActions{display:flex;justify-content:flex-end;gap:4px;margin-top:10px;flex-wrap:wrap}
+.calloutActions button{padding:5px 7px;font-size:.56rem}
+.hint{position:fixed;z-index:70;right:326px;bottom:232px;width:285px;padding:11px;background:#ead7b8;color:#2b2118;border-left:6px solid #9b1e28;box-shadow:6px 8px 20px #0009}
+.hint p{color:#8b1a1a;text-transform:uppercase;letter-spacing:.12em;font-size:.52rem}
+.hint strong,.hint span{display:block}
+.hint strong{margin:3px 0;font:.82rem var(--font-serif)}
+.hint span{font-size:.61rem;line-height:1.4}
+.hint label{display:block;margin:7px 0;font-size:.54rem}
+.hint button{float:right;padding:4px 7px;font-size:.55rem}
+.tutorial-target{position:relative;z-index:251!important;outline:2px solid #f0c46f!important;outline-offset:3px!important}
+.completionLayer{position:fixed;inset:0;z-index:280;display:grid;place-items:center;padding:24px;background:#080604c9}
+.completionCard{width:min(560px,100%);padding:28px;background:#ead9bc;color:#241a13;border:1px solid #7f261f;border-top:8px solid #9f1f29;box-shadow:0 24px 80px #000}
+.completionCard>p{color:#8d1f25;font:.62rem var(--font-mono);letter-spacing:.16em;text-transform:uppercase}
+.completionCard h2{margin:8px 0;font-size:1.7rem}
+.completionCard>span{display:block;line-height:1.55}
+.completionCard>div{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:22px}
+.completionCard button{min-height:42px}
+@media(max-width:900px){.hint{right:12px;bottom:228px}}
+@media(max-width:600px){.completionCard>div{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.spotlight{transition:none}}

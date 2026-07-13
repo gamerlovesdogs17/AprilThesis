@@ -30,6 +30,7 @@ export function CampaignSetup() {
       difficulty,
       background,
       tutorialEnabled,
+      tutorialMode: tutorialEnabled ? 'guided_opening' : 'none',
       seed: seed.trim() || suggestedSeed,
       ironman,
       reducedMotion: preferences.reducedMotion,
@@ -48,8 +49,8 @@ export function CampaignSetup() {
         <p className={styles.lead}>You are a fictional senior member of the Workers’ Opposition. Historical leaders retain their own agendas and may refuse you.</p>
 
         <section className={styles.factionOverview} aria-label="Workers' Opposition campaign overview">
-          <div className={styles.factionSeal}><svg viewBox="0 0 72 72" role="img" aria-label="Modern Workers' Opposition interface insignia"><circle cx="36" cy="36" r="30"/><path d="M36 9V18M36 54V63M9 36H18M54 36H63M17 17L23 23M49 49L55 55M55 17L49 23M23 49L17 55"/><circle cx="36" cy="36" r="18"/><path d="M27 46V29L32 25V37L37 34V42L43 38V46Z"/></svg><small>Modern game insignia · not a historical emblem</small></div>
-          <div><p className={styles.eyebrow}>Your faction</p><h2>Workers’ Opposition</h2><p>A Bolshevik current rooted in trade unions and industrial labor. You are a senior organizer—not the ruler of Soviet Russia—and your personal background changes how you work inside this one faction.</p><div className={styles.factionBrief}><span><b>Principal leaders</b>Kollontai · Shliapnikov · Medvedev</span><span><b>Starting strength</b>Militant workers, unions, factory committees</span><span><b>Starting weakness</b>Formal authority, security, party legitimacy</span><span><b>Institutional position</b>Condemned at the Tenth Congress; faction activity prohibited</span><span><b>Main dilemma</b>Comply, preserve informal networks, organize secretly, or resist</span></div></div>
+          <figure className={styles.factionDocument}><img src="/assets/documents/workers-opposition-1921-title-page.jpg" alt="Title page of Alexandra Kollontai's 1921 pamphlet The Workers Opposition in Russia"/><figcaption>Historical faction document · 1921 English IWW edition · public domain · publication month uncertain, shown as documentary framing</figcaption></figure>
+          <div><p className={styles.eyebrow}>Your faction</p><h2 className={styles.factionWordmark}>Workers’<br/>Opposition</h2><p>A Bolshevik current rooted in trade unions and industrial labor. You are a senior organizer—not the ruler of Soviet Russia—and your personal background changes how you work inside this one faction.</p><blockquote>“The management of the national economy must be entrusted to the producers.” <small>Platform summary after Kollontai; interface paraphrase</small></blockquote><div className={styles.leaderStrip}><figure><img src="/assets/portraits/kollontai.jpg" alt="Historical portrait of Alexandra Kollontai"/><figcaption>Alexandra Kollontai · portrait dated 1923 · documentary only</figcaption></figure><figure><img src="/assets/portraits/shliapnikov.jpg" alt="Historical portrait of Alexander Shliapnikov"/><figcaption>Alexander Shliapnikov · period photograph</figcaption></figure><div><b>Sergei Medvedev</b><span>Metalworkers’ organizer · no uncertain portrait substituted</span></div></div><div className={styles.factionBrief}><span><b>Principal leaders</b>Kollontai · Shliapnikov · Medvedev</span><span><b>Starting strength</b>Militant workers, unions, factory committees</span><span><b>Starting weakness</b>Formal authority, security, party legitimacy</span><span><b>Institutional position</b>Condemned at the Tenth Congress; faction activity prohibited</span><span><b>Main dilemma</b>Comply, preserve informal networks, organize secretly, or resist</span></div></div>
         </section>
 
         <div className={styles.cardGrid} role="radiogroup" aria-label="Player background">
@@ -89,7 +90,7 @@ export function CampaignSetup() {
         </div>
 
         <div className={styles.checkRow}>
-          <label><input type="checkbox" checked={tutorialEnabled} onChange={e => setTutorialEnabled(e.target.checked)} /> Guided opening</label>
+          <label><input type="checkbox" checked={tutorialEnabled} onChange={e => setTutorialEnabled(e.target.checked)} /> Guided Opening <small>Light contextual guidance in an ordinary campaign—not the structured main-menu tutorial.</small></label>
           <label><input type="checkbox" checked={ironman} onChange={e => setIronman(e.target.checked)} /> Ironman rules</label>
         </div>
 
