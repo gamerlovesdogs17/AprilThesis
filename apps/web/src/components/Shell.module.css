@@ -1,0 +1,24 @@
+.page { min-height: 100vh; overflow: auto; padding: 40px; background: radial-gradient(circle at 25% 10%, #39271c 0, #1a1410 55%); }
+.paperPanel { max-width: 1080px; margin: 0 auto; color: var(--color-text-dark); background: var(--color-bg-paper); border: 1px solid #9b7e59; box-shadow: 14px 18px 0 rgba(0,0,0,.28); padding: clamp(24px, 4vw, 52px); position: relative; }
+.paperPanel::before { content: ''; position: absolute; inset: 8px; pointer-events: none; border: 1px solid rgba(74,14,14,.18); }
+.paperPanel h1 { color: var(--color-red-dark); font-size: clamp(2rem, 5vw, 3.4rem); max-width: 850px; line-height: 1; text-transform: uppercase; }
+.eyebrow { color: var(--color-red); text-transform: uppercase; letter-spacing: .18em; font-weight: 700; margin-bottom: 12px; }
+.lead { max-width: 760px; line-height: 1.6; margin: 18px 0 28px; }
+.cardGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.choiceCard, .selectedCard { text-align: left; min-height: 105px; display: flex; flex-direction: column; gap: 8px; background: #e7d3b7; color: #2a2218; border-color: #a78b68; }
+.choiceCard span, .selectedCard span { font-size: .8rem; line-height: 1.4; }
+.selectedCard { background: #8b1a1a; color: #fff7e9; border-color: #4a0e0e; box-shadow: inset 0 0 0 2px #d7bd8c; }
+.formGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; }
+.formGrid label { font-weight: 700; display: flex; flex-direction: column; gap: 7px; }
+.formGrid input, .formGrid select { width: 100%; color: var(--color-text); }
+.checkRow, .actionRow { display: flex; align-items: center; gap: 22px; margin-top: 24px; }
+.checkRow input { margin-right: 7px; accent-color: var(--color-red); }
+.actionRow { justify-content: flex-end; }
+.section { border-top: 2px solid #8b1a1a; margin-top: 26px; padding-top: 18px; }
+.section h2 { color: #4a0e0e; margin-bottom: 10px; }
+.section p, .section li { line-height: 1.55; }
+.section ul { margin: 10px 0 0 22px; }
+.menuList { display: grid; gap: 12px; margin-top: 24px; }
+.menuList button { text-align: left; }
+.statLine { display: flex; justify-content: space-between; border-bottom: 1px dotted #9b7e59; padding: 8px 0; }
+@media (max-width: 800px) { .page { padding: 14px; } .cardGrid, .formGrid { grid-template-columns: 1fr; } }

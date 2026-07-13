@@ -1,0 +1,30 @@
+{
+  "name": "april-thesis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "APRIL THESIS — A map-centered political strategy game set in Soviet Russia, 1921–1924",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @april-thesis/web",
+    "build": "npm run build -w @april-thesis/web",
+    "preview": "npm run preview -w @april-thesis/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint apps packages scripts",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e -w @april-thesis/web",
+    "validate:assets": "node scripts/validate-assets.mjs",
+    "validate:all": "npm run typecheck && npm run test && npm run validate:assets && npm run build"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.7.0",
+    "globals": "^17.7.0",
+    "typescript-eslint": "^8.63.0"
+  }
+}

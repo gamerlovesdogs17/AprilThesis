@@ -1,0 +1,272 @@
+.intro {
+  position: fixed;
+  inset: 0;
+  background: #0a0806;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.skipBtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid var(--color-border);
+}
+
+.audioBtn {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 10;
+}
+
+.sceneDarkness, .sceneMap, .sceneNewspapers, .sceneCongress, .sceneMeeting, .sceneTitle {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.redLine {
+  width: 0;
+  height: 2px;
+  background: var(--color-red-bright);
+  animation: expandLine 3s ease forwards;
+  margin-bottom: 32px;
+}
+
+@keyframes expandLine {
+  to { width: 60%; }
+}
+
+.lineText {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  color: var(--color-text);
+  margin: 12px 0;
+  opacity: 0;
+  animation: fadeInLine 1s ease forwards;
+}
+
+@keyframes fadeInLine {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mapSvg {
+  width: 80%;
+  max-width: 800px;
+  opacity: 0.8;
+}
+
+.mapRegion {
+  animation: regionAppear 2s ease forwards;
+}
+
+@keyframes regionAppear {
+  from { opacity: 0; }
+  to { opacity: 0.6; }
+}
+
+.frontLine {
+  animation: frontRecede 4s ease forwards;
+}
+
+@keyframes frontRecede {
+  to { opacity: 0; transform: translateY(-20px); }
+}
+
+.mapText {
+  position: absolute;
+  bottom: 15%;
+  text-align: center;
+}
+
+.sceneNewspapers {
+  perspective: 800px;
+}
+
+.newspaper {
+  position: absolute;
+  width: 280px;
+  padding: 20px;
+  background: var(--color-bg-paper);
+  color: var(--color-text-dark);
+  box-shadow: 4px 4px 12px rgba(0,0,0,0.5);
+  animation: paperSlide 0.8s ease forwards;
+  opacity: 0;
+}
+
+@keyframes paperSlide {
+  from { opacity: 0; transform: translateX(100px) rotate(5deg); }
+  to { opacity: 1; }
+}
+
+.newspaperHeader {
+  font-size: 0.7rem;
+  border-bottom: 1px solid var(--color-text-dark);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.newspaperHeadline {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.sceneCongress {
+  background: linear-gradient(180deg, #1a1410 0%, #2a1a10 100%);
+}
+
+.congressHall {
+  width: 80%;
+  height: 60%;
+  position: relative;
+  border: 1px solid var(--color-border);
+}
+
+.silhouettes {
+  position: absolute;
+  bottom: 20%;
+  width: 100%;
+  height: 40%;
+}
+
+.silhouette {
+  position: absolute;
+  bottom: 0;
+  width: 30px;
+  height: 60px;
+  background: #0a0806;
+  border-radius: 15px 15px 0 0;
+}
+
+.stamp {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(3);
+  color: var(--color-red-bright);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: 3px solid var(--color-red-bright);
+  padding: 12px 20px;
+  opacity: 0;
+  letter-spacing: 2px;
+}
+
+.stampVisible {
+  animation: stampHit 0.4s ease forwards;
+}
+
+@keyframes stampHit {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(3); }
+  60% { opacity: 1; transform: translate(-50%, -50%) scale(0.9); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.sceneMeeting {
+  background: radial-gradient(ellipse at center, #2a1a10 0%, #0a0806 70%);
+}
+
+.meetingTable {
+  width: 70%;
+  max-width: 600px;
+  padding: 40px;
+  border: 1px solid var(--color-border);
+  background: rgba(42, 34, 24, 0.8);
+}
+
+.dossiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.dossier {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border: 1px solid var(--color-gold-muted);
+  color: var(--color-gold);
+}
+
+.telegram {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.1rem;
+  border-left: 3px solid var(--color-red);
+  padding-left: 16px;
+  animation: fadeInLine 1.5s ease forwards;
+}
+
+.sceneTitle {
+  text-align: center;
+}
+
+.gameTitle {
+  font-size: 3.5rem;
+  color: var(--color-red-bright);
+  letter-spacing: 8px;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.2rem;
+  color: var(--color-text-muted);
+  margin-bottom: 32px;
+}
+
+.quote {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  max-width: 500px;
+  margin-bottom: 40px;
+}
+
+.staticIntro {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.staticContent {
+  text-align: center;
+  max-width: 600px;
+  padding: 32px;
+}
+
+.staticContent h1 {
+  font-size: 2.5rem;
+  color: var(--color-red-bright);
+  letter-spacing: 6px;
+  margin-bottom: 8px;
+}
+
+.staticContent .context {
+  margin: 24px 0;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.captions {
+  position: absolute;
+  bottom: 8px;
+  left: 16px;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}

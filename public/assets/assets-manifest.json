@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "assets": [],
+  "notes": "The current vertical slice uses only original HTML, CSS, SVG, and procedural Web Audio. External assets must be recorded here before entering apps/web/public."
+}
