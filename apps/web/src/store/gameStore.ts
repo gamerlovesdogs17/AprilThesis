@@ -76,6 +76,7 @@ interface GameStore {
   closeAuxiliary: () => void;
   returnToTitle: () => void;
   startCampaign: (settings: CampaignSettings) => void;
+  startQuickStart: () => void;
   startGuidedTutorial: () => void;
   loadCampaign: (envelope: { campaign: CampaignState }) => void;
   setPhase: (phase: TurnPhase) => void;
@@ -138,11 +139,14 @@ const defaultPrefs: UserPreferences = {
   researchMode: false,
   allCityLabels: false,
   situationBoardEnabled: true,
+  interfaceDetail: 'standard',
   ...loadPreferences() as Partial<UserPreferences>,
 };
 
-const ACTIVE_SESSION_KEY = 'april-thesis-active-session-v4';
+const ACTIVE_SESSION_KEY = 'april-thesis-active-session-v7';
+const OBSOLETE_ACTIVE_SESSION_KEYS = ['april-thesis-active-session-v4'];
 export const GUIDED_TUTORIAL_SEED = 'april-thesis-guided-tutorial-march-1921-v1';
+export const QUICK_START_SEED = 'april-thesis-quick-start-march-1921-v1';
 
 function addTutorialMilestone(campaign: CampaignState, milestone: string): CampaignState {
   if (campaign.settings.tutorialMode !== 'guided_tutorial' || campaign.tutorialMilestones.includes(milestone)) return campaign;
@@ -164,6 +168,7 @@ interface ActiveSession {
 
 function loadActiveSession(): ActiveSession | null {
   try {
+    OBSOLETE_ACTIVE_SESSION_KEYS.forEach(key=>localStorage.removeItem(key));
     const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
     if (!raw) return null;
     const session = JSON.parse(raw) as ActiveSession;
@@ -275,6 +280,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const preferences = { ...get().preferences, campaignsStarted:get().preferences.campaignsStarted + 1 };
     savePreferences(preferences as unknown as Record<string, unknown>);
     set({ campaign, preferences, screen:'game', overlayScreen:null, selectedRegionId:null, selectedProvinceId:null, mapView:'national', selectedCharacterId:null, bottomGroup:'situation', bottomTab:'economy', campaignDirty:true });
+  },
+
+  startQuickStart: () => {
+    const state=get();
+    const preferences={...state.preferences,interfaceDetail:'standard' as const,beginnerHintMode:'every_campaign' as const};
+    savePreferences(preferences as unknown as Record<string,unknown>);
+    set({preferences});
+    get().startCampaign({
+      simulationMode:'plausible',difficulty:'standard',background:'trade_union_organizer',
+      tutorialEnabled:true,tutorialMode:'guided_opening',seed:QUICK_START_SEED,
+      ironman:false,reducedMotion:preferences.reducedMotion,glossaryEnabled:true,
+      contentWarnings:true,autosaveFrequency:1,
+    });
   },
 
   startGuidedTutorial: () => {

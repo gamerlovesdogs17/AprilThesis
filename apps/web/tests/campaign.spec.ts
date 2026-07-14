@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 async function launchCampaign(page: Page, background?: string, tutorial=false) {
-  await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ introViewed: true, muted: true, reducedMotion: true, beginnerHintMode: 'off' })));
+  await page.addInitScript(() => localStorage.setItem('april-thesis-preferences', JSON.stringify({ introViewed: true, muted: true, reducedMotion: true, beginnerHintMode: 'off', interfaceDetail: 'expert' })));
   await page.goto('/');
   await page.getByRole('button', { name: 'New Campaign' }).click();
   if (background) await page.getByRole('radio', { name: new RegExp(background, 'i') }).click();
@@ -158,14 +158,15 @@ test('save manager can duplicate and export a manual slot', async ({ page }) => 
 test('map zoom, reset, and dedicated province view stay clamped', async ({ page }) => {
   await launchCampaign(page); await resolveOpening(page);
   const zoom = page.getByLabel('Map zoom');
-  await expect(zoom).toHaveText('100%');
+  await expect(zoom).toHaveText(/^\d+%$/);
+  const fittedZoom = await zoom.textContent();
   for (let i = 0; i < 10; i++) await page.getByTestId('zoom-in').click();
   await expect(zoom).toHaveText('420%');
   await page.getByLabel('Select historical province').selectOption('petrograd-governorate');
   await page.getByTestId('enter-province').click();
   await expect(page.getByTestId('province-detail-view')).toBeVisible();
   await page.getByTestId('reset-map').click();
-  await expect(zoom).toHaveText('100%');
+  await expect(zoom).toHaveText(fittedZoom ?? '');
 });
 
 test('geographic layers toggle independently and preserve the selected region', async ({ page }) => {
@@ -297,7 +298,7 @@ test('selected region exposes comparison data for adjacent regions', async ({ pa
   await expect(comparison).toContainText(/karelia/i);
 });
 
-test('imports and loads a pre-Phase-Three save through the archive', async ({ page }) => {
+test('rejects and quarantines an obsolete prototype save through the archive', async ({ page }) => {
   await launchCampaign(page);
   await page.getByRole('button', { name: 'Save', exact:true }).click();
   await openDock(page,'Saves','Save management');
@@ -308,14 +309,10 @@ test('imports and loads a pre-Phase-Three save through the archive', async ({ pa
   const exportedPath = await exported.path();
   expect(exportedPath).not.toBeNull();
   const legacy = JSON.parse(await readFile(exportedPath!, 'utf8'));
-  legacy.saveVersion = 2;
-  delete legacy.campaign.historySnapshots;
+  legacy.saveVersion = 5;
   delete legacy.checksum;
-  await page.getByLabel('Import save file').setInputFiles({ name: 'phase-two-save.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacy)) });
-  await expect(page.getByRole('alert')).toContainText('Imported phase-two-save.json');
-  await page.getByRole('button', { name: /Manual · March 1921/ }).last().click();
-  await openDock(page,'Situation','National');
-  await expect(page.getByText(/1 snapshot · real campaign history/)).toBeVisible();
+  await page.getByLabel('Import save file').setInputFiles({ name: 'prototype-save.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacy)) });
+  await expect(page.getByRole('alert')).toContainText('Prototype saves from before Phase Six are no longer supported');
 });
 
 test('plays a full month and records history without console errors', async ({ page }) => {

@@ -9,6 +9,16 @@ export interface GeoJSONPolygon { type:'Polygon'; coordinates:number[][][] }
 export interface GeoJSONMultiPolygon { type:'MultiPolygon'; coordinates:number[][][][] }
 export type AdministrativeGeometry = GeoJSONPolygon | GeoJSONMultiPolygon;
 
+export interface ProvinceAdministrativePeriod {
+  validFrom: string;
+  validUntil?: string;
+  formalGovernmentId: string;
+  administrativeType: string;
+  displayName?: string;
+  sourceIds: string[];
+  confidence: 'high' | 'medium' | 'low';
+}
+
 interface GeoJSONFeature<P, G> {
   type: 'Feature';
   id?: string | number;
@@ -26,13 +36,12 @@ export interface HistoricalProvince {
   name1921: string;
   alternateNames: string[];
   neighborIds: string[];
-  formalGovernmentId: string;
-  administrativeType: string;
   strategicRegionId: string;
   geometry: AdministrativeGeometry;
   capitalCityId?: string;
-  validFrom: string;
-  validUntil?: string;
+  geographicValidFrom: string;
+  geographicValidUntil?: string;
+  administrativePeriods: ProvinceAdministrativePeriod[];
   sourceIds: string[];
   sourceFeatureIds: string[];
   reconstructionOperation: string;
@@ -55,7 +64,9 @@ export interface HistoricalDistrict {
 
 export interface FormalGovernmentBoundary {
   id: string;
+  governmentId: string;
   validFrom: string;
+  validUntil: string;
   sourceIds: string[];
   geometry: AdministrativeGeometry;
 }
@@ -77,6 +88,15 @@ export interface ProvinceSource {
 }
 
 export const provinceSources: ProvinceSource[] = [
+  {
+    id:'east-kazakhstan-archive-akmolinsk-1921',
+    title:'Administrative history of Akmolinsk and Semipalatinsk territories',
+    date:'1920–1921 administrative transfer chronology',
+    repository:'State Archive of East Kazakhstan Region',
+    url:'https://e-arhiv.vko.gov.kz/ru/Page/Index/1495',
+    license:'Government archival reference; factual chronology cited',
+    note:'Documents the temporary subordination of Akmolinsk and Semipalatinsk to the Siberian Revolutionary Committee until April 1921.',
+  },
   {
     id:'iish-ristat-1897-gis-v3.3',
     title:'Russian Empire Historical GIS Maps (1897), provinces and districts',
@@ -124,9 +144,9 @@ export const provinceSources: ProvinceSource[] = [
   },
 ];
 
-interface ProvinceProperties extends Omit<HistoricalProvince, 'geometry' | 'capitalCityId' | 'validUntil'> {
+interface ProvinceProperties extends Omit<HistoricalProvince, 'geometry' | 'capitalCityId' | 'geographicValidUntil'> {
   capitalCityId: string | null;
-  validUntil: string | null;
+  geographicValidUntil: string | null;
 }
 
 interface DistrictProperties extends Omit<HistoricalDistrict, 'geometry'> {
@@ -149,14 +169,14 @@ const strategicCollection = strategicAggregatesGeoJson as unknown as GeoJSONFeat
 export const historicalProvinces: HistoricalProvince[] = provinceCollection.features.map(({properties,geometry}) => ({
   ...properties,
   capitalCityId: properties.capitalCityId ?? undefined,
-  validUntil: properties.validUntil ?? undefined,
+  geographicValidUntil: properties.geographicValidUntil ?? undefined,
   geometry,
 }));
 
 export const historicalProvinceDetails: HistoricalProvince[] = provinceDetailCollection.features.map(({properties,geometry}) => ({
   ...properties,
   capitalCityId: properties.capitalCityId ?? undefined,
-  validUntil: properties.validUntil ?? undefined,
+  geographicValidUntil: properties.geographicValidUntil ?? undefined,
   geometry,
 }));
 
@@ -189,7 +209,21 @@ function rings(geometry:AdministrativeGeometry): number[][][] {
 
 export function isProvinceActive(province:HistoricalProvince,date:string):boolean {
   const month=date.slice(0,7);
-  return province.validFrom.slice(0,7)<=month && (!province.validUntil||month<=province.validUntil.slice(0,7));
+  return province.geographicValidFrom.slice(0,7)<=month && (!province.geographicValidUntil||month<=province.geographicValidUntil.slice(0,7));
+}
+
+export function getProvinceAdministration(province:HistoricalProvince,date:string):ProvinceAdministrativePeriod|undefined {
+  const month=date.slice(0,7);
+  return province.administrativePeriods.find(period=>period.validFrom.slice(0,7)<=month&&(!period.validUntil||month<=period.validUntil.slice(0,7)));
+}
+
+export function getProvinceDisplayName(province:HistoricalProvince,date:string):string {
+  return getProvinceAdministration(province,date)?.displayName??province.name1921;
+}
+
+export function isFormalGovernmentBoundaryActive(boundary:FormalGovernmentBoundary,date:string):boolean {
+  const month=date.slice(0,7);
+  return boundary.validFrom.slice(0,7)<=month&&month<=boundary.validUntil.slice(0,7);
 }
 
 export function getAdministrativePath(geometry:AdministrativeGeometry):string {

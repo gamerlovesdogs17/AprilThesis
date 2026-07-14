@@ -29,53 +29,53 @@
     },
     {
       "path": "districts-1921.geo.json",
-      "bytes": 2197229,
-      "sha256": "44c6b6cc465e25390709ee819ff9c0d8c81355ac8e5e4174ce2e106b1da302f4"
+      "bytes": 2224409,
+      "sha256": "301a2c5bf161132a35cd734de4f9f41d38476e46dae14834ee1f40ff50423f4e"
     },
     {
       "path": "districts-1921.topo.json",
-      "bytes": 548067,
-      "sha256": "71ad9aed5c9d8466f2d6f145b2164abc024200071ae51b4af8704f135920dea2"
+      "bytes": 551369,
+      "sha256": "65cd5235c5a0159c9c9f33e77a122a0ac88d31d8cc82ff29aff1b1154848d7a5"
     },
     {
       "path": "formal-governments-1921.geo.json",
-      "bytes": 322140,
-      "sha256": "b7d0ed396c7262eb0f240c9e91d0e9050b5c1109ed4d07dbdcfc2077a86c52ff"
+      "bytes": 1940434,
+      "sha256": "61dc24f50b567119edcdec55e43e39d95369ec9c1990cb75f6ab0aa5e2d4b275"
     },
     {
       "path": "formal-governments-1921.topo.json",
-      "bytes": 76813,
-      "sha256": "8f3de0ec39035e4abeaf803107d72b35657047158a2d1c7243432e2ef7490306"
+      "bytes": 103560,
+      "sha256": "da1b542532d5be593f59cba008ae0e7fed8ba10d14ee6305ae3c97190c206bcd"
     },
     {
       "path": "province-changes-1921.json",
-      "bytes": 52666,
-      "sha256": "ce083d3803fee97272cfdc892330265c1c4c538ded31dd4f7becbb267301fc7b"
+      "bytes": 53971,
+      "sha256": "35e0d6d44133addb569dd97730711fee4fef792a79034bf169fc91efe87ed8bb"
     },
     {
       "path": "provinces-1921.detail.geo.json",
-      "bytes": 2548648,
-      "sha256": "aa8e6cb537ced0b297f9dfda4322b6b493eefe4780dbb4cba76ed25b1d6049a1"
+      "bytes": 2523152,
+      "sha256": "5fa3aeccc446668b7a8e4d91b4a5c29d1d55dc89167aeeadb8497a183699439c"
     },
     {
       "path": "provinces-1921.geo.json",
-      "bytes": 681614,
-      "sha256": "b197fa5f8992a8d7d18e353ec72ce90c4aa5605a633d36099cb5f71649a7b005"
+      "bytes": 692060,
+      "sha256": "39c2f468a5a5d32fae2c947a224c1dbd1d93f6523787abd492e88fc203c30a7b"
     },
     {
       "path": "provinces-1921.medium.topo.json",
-      "bytes": 180175,
-      "sha256": "d939dcc7321d2d35d70c47416e6501e6e1d543dc3422c1522392e44db8bd2bdf"
+      "bytes": 199127,
+      "sha256": "6b456535d5f2b69eca682e02378f9db9660df13cfb37af4c97b0bad5228e7f96"
     },
     {
       "path": "provinces-1921.national.topo.json",
-      "bytes": 125576,
-      "sha256": "bd4bcf9be3c0109d3bf918438730603a230f29eb2a91edc50cb199be0c466d8c"
+      "bytes": 144580,
+      "sha256": "bc0e620a524f25854d7801c15d04bde0da916ea51b0ac026be2fe4e26acb80b2"
     },
     {
       "path": "provinces-1921.topo.json",
-      "bytes": 425231,
-      "sha256": "32c7221a45a1948a70af878972f555fb7ece47f4a5870e57f342655fb0def298"
+      "bytes": 443721,
+      "sha256": "145f41253cb6671ce1fc7fecdd45119945cc1a362ad40a2a594db0e6e6290372"
     },
     {
       "path": "railways-1921.geo.json",
@@ -84,8 +84,8 @@
     },
     {
       "path": "rivers.geo.json",
-      "bytes": 477259,
-      "sha256": "50157c3a1661e7840c26a2abdbfc9a95f0f7517ad1fe1bb9cc1f899faf2af7b3"
+      "bytes": 477300,
+      "sha256": "745875e546541fe4ac50d67916fb1f77bdeb40583cb886f83e8f2ffcaa2e8547"
     },
     {
       "path": "sites-1921-source.json",
@@ -104,13 +104,13 @@
     },
     {
       "path": "strategic-aggregates-1921.geo.json",
-      "bytes": 423231,
-      "sha256": "2d2d3b5b441ef4a4e2ea9be35c134a0db855cf9f4af6a81232b41f5ef1f43fab"
+      "bytes": 422948,
+      "sha256": "32e068805a686653d41e487282e01dad8be9300d55a70dab3f3f6297a675c8fa"
     },
     {
       "path": "strategic-aggregates-1921.topo.json",
-      "bytes": 91892,
-      "sha256": "8de1b96f12bddeda30bdcef832471d53de98ceb27262ec94216163cc3fad9261"
+      "bytes": 91943,
+      "sha256": "723881f510bb5650c80ae89fa120e62135f5d692d70866188c84aa72c606c0f0"
     }
   ]
 }

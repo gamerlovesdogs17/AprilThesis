@@ -3,7 +3,7 @@ import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 async function startCampaign(page:Page,tutorial=false,hints=false){
-  await page.addInitScript((showHints)=>localStorage.setItem('april-thesis-preferences',JSON.stringify({introViewed:true,muted:true,reducedMotion:true,beginnerHintMode:showHints?'first_campaign':'off',campaignsStarted:0})),hints);
+  await page.addInitScript((showHints)=>localStorage.setItem('april-thesis-preferences',JSON.stringify({introViewed:true,muted:true,reducedMotion:true,beginnerHintMode:showHints?'first_campaign':'off',campaignsStarted:0,interfaceDetail:'expert'})),hints);
   await page.goto('/');
   if(tutorial){await page.getByRole('button',{name:/GUIDED TUTORIAL/}).click();return;}
   await page.getByRole('button',{name:'New Campaign'}).click();
@@ -24,13 +24,13 @@ test('guided tutorial starts the fixed scenario and gates its province interacti
   await startCampaign(page,true);
   await expect(page.getByRole('dialog',{name:'Tutorial step 1 of 21'})).toBeVisible();
   await expect(page.getByText('Trade Union Organizer',{exact:true})).toBeVisible();
-  await expect.poll(()=>page.evaluate(()=>{const campaign=JSON.parse(localStorage.getItem('april-thesis-active-session-v4')??'{}').campaign;return {date:campaign?.currentDate,phase:campaign?.phase,seed:campaign?.settings?.seed,mode:campaign?.settings?.tutorialMode,ironman:campaign?.settings?.ironman};})).toEqual({date:'1921-03',phase:'faction_management',seed:'april-thesis-guided-tutorial-march-1921-v1',mode:'guided_tutorial',ironman:false});
+  await expect.poll(()=>page.evaluate(()=>{const campaign=JSON.parse(localStorage.getItem('april-thesis-active-session-v7')??'{}').campaign;return {date:campaign?.currentDate,phase:campaign?.phase,seed:campaign?.settings?.seed,mode:campaign?.settings?.tutorialMode,ironman:campaign?.settings?.ironman};})).toEqual({date:'1921-03',phase:'faction_management',seed:'april-thesis-guided-tutorial-march-1921-v1',mode:'guided_tutorial',ironman:false});
   for(let step=1;step<6;step+=1)await page.getByRole('button',{name:'Next',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'Tutorial step 6 of 21'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Next',exact:true})).toBeDisabled();
   await page.getByLabel('Select historical province').selectOption('petrograd-governorate');
   await expect(page.getByRole('button',{name:'Next',exact:true})).toBeEnabled();
-  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('april-thesis-active-session-v4')??'{}').campaign?.tutorialMilestones)).toContain('province-selected');
+  await expect.poll(()=>page.evaluate(()=>JSON.parse(localStorage.getItem('april-thesis-active-session-v7')??'{}').campaign?.tutorialMilestones)).toContain('province-selected');
 });
 
 test('skip, close, resume, and restart tutorial remain distinct actions',async({page})=>{
@@ -97,9 +97,10 @@ test('research mode alone exposes raw archive identifiers',async({page})=>{
 
 test('national labels stay restrained while province view reveals local detail',async({page})=>{
   await startCampaign(page,false);await resolveOpening(page);
+  const fittedZoom=await page.getByLabel('Map zoom').textContent();
   const national=await page.locator('[data-city-id][data-label-visible="true"]').count();expect(national).toBeGreaterThanOrEqual(8);expect(national).toBeLessThanOrEqual(12);
   await page.getByLabel('Select historical province').selectOption('petrograd-governorate');await page.getByTestId('enter-province').click();
-  await expect(page.getByTestId('province-detail-view')).toBeVisible();await expect(page.getByRole('img',{name:'Geographic province atlas of Petrograd Governorate'})).toBeVisible();await page.getByTestId('reset-map').click();await expect(page.getByLabel('Map zoom')).toHaveText('100%');
+  await expect(page.getByTestId('province-detail-view')).toBeVisible();await expect(page.getByRole('img',{name:'Geographic province atlas of Petrograd Governorate'})).toBeVisible();await page.getByTestId('reset-map').click();await expect(page.getByLabel('Map zoom')).toHaveText(fittedZoom??'');
 });
 
 test('all-label preference is opt-in and collision suppression remains the default',async({page})=>{

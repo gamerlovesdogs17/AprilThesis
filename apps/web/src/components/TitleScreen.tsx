@@ -9,6 +9,7 @@ export function TitleScreen() {
   const refreshSaveSlots = useGameStore(s => s.refreshSaveSlots);
   const saveSlots = useGameStore(s => s.saveSlots);
   const loadCampaign = useGameStore(s => s.loadCampaign);
+  const startQuickStart = useGameStore(s => s.startQuickStart);
   const startGuidedTutorial = useGameStore(s => s.startGuidedTutorial);
   const preferences = useGameStore(s => s.preferences);
   useEffect(() => {
@@ -37,8 +38,11 @@ export function TitleScreen() {
       </header>
 
       <nav className={styles.menu} aria-label="Main menu">
-        <button className={`primary ${styles.menuBtn}`} onClick={() => setScreen('setup')}>
-          New Campaign
+        <button className={`primary ${styles.menuBtn}`} onClick={startQuickStart}>
+          <strong>QUICK START</strong><span>Recommended setup Â· Standard interface Â· guided opening</span>
+        </button>
+        <button className={styles.menuBtn} onClick={() => setScreen('setup')}>
+          New Campaign / Custom Setup
         </button>
         <button className={`${styles.menuBtn} ${styles.tutorialBtn}`} onClick={startGuidedTutorial}>
           <strong>GUIDED TUTORIAL</strong><span>Structured 10–15 minute March scenario</span>

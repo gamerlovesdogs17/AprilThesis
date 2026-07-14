@@ -2,6 +2,7 @@
 
 export type SimulationMode = 'historical' | 'plausible' | 'unbound';
 export type Difficulty = 'lenient' | 'standard' | 'severe' | 'historical_hardship';
+export type InterfaceDetailMode = 'standard' | 'expert';
 export type PlayerBackground =
   | 'trade_union_organizer'
   | 'factory_committee_delegate'
@@ -490,13 +491,15 @@ export interface UserPreferences {
   researchMode: boolean;
   allCityLabels: boolean;
   situationBoardEnabled: boolean;
+  interfaceDetail: InterfaceDetailMode;
 }
 
-export const GAME_VERSION = '0.6.0';
-export const CONTENT_VERSION = '0.6.0';
-export const SAVE_VERSION = 6;
+export const GAME_VERSION = '0.7.0';
+export const CONTENT_VERSION = '0.7.0';
+export const SAVE_VERSION = 7;
+export const MINIMUM_SUPPORTED_SAVE_VERSION = 6;
 export const CAMPAIGN_START_DATE = '1921-03';
-export const CAMPAIGN_END_DATE = '1924-04';
+export const CAMPAIGN_END_DATE = '1921-08';
 export const VERTICAL_SLICE_END = '1921-08';
 
 export const MONTH_NAMES = [

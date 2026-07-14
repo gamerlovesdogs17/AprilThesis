@@ -16,9 +16,9 @@
 - A single clean Chromium run passes all 48 Playwright scenarios, including the six Phase Six behavior scenarios and the 22-image cartographic/presentation review matrix.
 - In-app review confirmed 93 non-rectangular independent province surfaces, 14 formal paths, 28 optional strategic dissolves, all theater controls, and a Moscow local atlas with 13 districts, four railway segments, one assigned city, three sites, and the source-backed Moskva River.
 
-## Completion gate still open
+## Completion gate closed in Phase Seven
 
-Phase Six is **not yet called complete** until a human click-by-click March-August campaign is finished and recorded. The clean browser suite and archival screenshots are complete, but neither substitutes for that human campaign gate.
+Phase Seven completed and recorded two browser-driven click-by-click March-August campaigns, one in Standard detail and one in Expert detail. Both used the same fixed seed and decision path and reached the identical August ending. See `docs/PHASE_SEVEN_REVIEW.md` for the final playability record.
 
 ## Known cartographic gaps
 

@@ -18,11 +18,12 @@
   padding: 8px 10px;
   border-bottom: 1px solid #5a4030;
   background: linear-gradient(90deg,#2b1d14,#19130f);
+  flex-wrap: wrap;
 }
 .toolbar > div:first-child { display:flex; flex-direction:column; min-width:0; }
 .toolbar strong { font:700 .8rem var(--font-serif); color:#efd8b3; }
 .toolbar span { overflow:hidden; color:#a79278; font-size:.56rem; text-overflow:ellipsis; white-space:nowrap; }
-.mapActions { display:flex; align-items:center; gap:4px; }
+.mapActions { display:flex; align-items:center; gap:4px; min-width:0; max-width:100%; overflow-x:auto; }
 .mapActions button { padding:5px 7px; font-size:.62rem; }
 .mapActions output { min-width:44px; color:#c9b28f; font-size:.56rem; text-align:center; }
 .mapActions select { max-width:190px; padding:4px; font-size:.62rem; }
@@ -47,6 +48,9 @@
 .layerBar > button { padding:.18rem .38rem; border:1px solid rgba(217,177,105,.35); background:transparent; color:inherit; font:inherit; }
 .layerBar > button[aria-pressed='true'] { background:rgba(217,177,105,.16); }
 .layerBar input[type="range"] { width:64px; padding:0; }
+.standardMapOptions { position:relative; z-index:9; border-bottom:1px solid #49352a; background:#201810; color:#c4ad89; }
+.standardMapOptions > summary { padding:6px 10px; cursor:pointer; font-size:.55rem; text-transform:uppercase; letter-spacing:.06em; }
+.standardMapOptions .layerBar { border-top:1px solid #49352a; border-bottom:0; }
 
 .mapFrame {
   position:relative;
@@ -142,6 +146,12 @@
 .nationalInset svg { display:block; width:100%; height:100%; }
 .nationalInset path { fill:#572529; stroke:#aa8b60; stroke-width:.55; }
 .nationalInset rect { fill:none; stroke:#f2d39c; stroke-width:4; vector-effect:non-scaling-stroke; }
+.selectionFeedback { position:absolute; z-index:8; left:12px; bottom:34px; width:min(300px,calc(100% - 24px)); padding:9px 11px; border:1px solid #d7b16d; border-left:5px solid #b52a34; background:#16110eea; box-shadow:5px 7px 16px #0009; color:#d9c4a3; }
+.selectionFeedback span,.selectionFeedback small { display:block; font-size:.5rem; line-height:1.35; }
+.selectionFeedback span { color:#d5a655; text-transform:uppercase; letter-spacing:.08em; }
+.selectionFeedback strong { display:block; margin:2px 0; color:#fff0d1; font:.82rem var(--font-serif); }
+.selectionFeedback div { display:flex; gap:5px; margin-top:7px; }
+.selectionFeedback button { padding:4px 6px; font-size:.53rem; }
 
 .legend { display:flex; align-items:center; flex-wrap:wrap; gap:5px 10px; min-height:30px; padding:6px 9px; border-top:1px solid #5a4030; background:#261c15; color:#baa68b; font-size:.51rem; }
 .legend span { display:flex; align-items:center; gap:4px; }
@@ -215,10 +225,22 @@
   .siteLedger { padding:10px; }
 }
 @media(max-width:850px){
+  .toolbar { align-items:stretch; }
+  .toolbar > div:first-child { width:100%; }
+  .mapActions { width:100%; }
   .mapActions select[aria-label="Map mode"] { display:none; }
   .provinceDetail { grid-template-columns:1fr; }
   .siteLedger { position:absolute; top:0; right:0; bottom:0; width:245px; }
   .nationalInset { display:none; }
+}
+@media(max-width:620px){
+  .toolbar { padding:5px 6px; gap:5px; }
+  .mapActions select[aria-label="Select historical province"] { min-width:160px; max-width:210px; }
+  .theaterBar { padding-inline:6px; }
+  .overview { display:none; }
+  .mapNote { max-width:72%; }
+  .selectionFeedback { bottom:30px; }
+  .siteLedger { width:min(260px,72vw); }
 }
 @media(prefers-reduced-motion:reduce){
   .activity_operation path { animation:none; }

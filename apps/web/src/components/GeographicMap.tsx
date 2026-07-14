@@ -17,12 +17,15 @@ import {
   getCityPoint,
   getLinePath,
   getProvinceCenter,
+  getProvinceAdministration,
+  getProvinceDisplayName,
   getProvincePath,
   historicalDistricts,
   historicalProvinceDetails,
   historicalProvinces,
   historicalSites,
   isProvinceActive,
+  isFormalGovernmentBoundaryActive,
   isSiteActive,
   provinceSources,
   projectCoordinate,
@@ -56,7 +59,8 @@ import styles from './GeographicMap.module.css';
 
 const MAP_MODES:MapMode[]=['political_influence','formal_administration','party_organization','trade_union_strength','factory_committee_strength','local_soviet_autonomy','security_surveillance','red_army_loyalty','economic_output','food_supply','famine_disease','unrest_strikes','nationality_movements','railway_infrastructure','propaganda_reach','intelligence_confidence'];
 const MIN_ZOOM=.85,MAX_ZOOM=4.2,DRAG_THRESHOLD=5;
-const MAP_VIEW_KEY='april-thesis-map-view-v6';
+const MAP_VIEW_KEY='april-thesis-map-view-v7';
+const OBSOLETE_MAP_VIEW_KEY='april-thesis-map-view-v6';
 
 type AppearancePreset='historical_atlas'|'political_intelligence'|'economic_planning'|'minimal_accessibility';
 interface MapLayers {
@@ -103,12 +107,23 @@ const MAJOR_FORMAL_LABELS=new Set(['rsfsr','ukrainian-ssr','far-eastern-republic
 
 function clampMapZoom(value:number){return Math.max(MIN_ZOOM,Math.min(MAX_ZOOM,value));}
 
-function loadMapView(){
-  if(typeof sessionStorage==='undefined')return {zoom:1,pan:{x:0,y:0}};
+interface StoredMapView {
+  version:number;
+  zoom:number;
+  pan:{x:number;y:number};
+  viewport:{width:number;height:number};
+}
+
+function loadMapView():StoredMapView|null{
+  if(typeof sessionStorage==='undefined')return null;
   try{
-    const saved=JSON.parse(sessionStorage.getItem(MAP_VIEW_KEY)??'{}') as {zoom?:number;pan?:{x?:number;y?:number}};
-    return {zoom:clampMapZoom(saved.zoom??1),pan:{x:saved.pan?.x??0,y:saved.pan?.y??0}};
-  }catch{return {zoom:1,pan:{x:0,y:0}};}
+    sessionStorage.removeItem(OBSOLETE_MAP_VIEW_KEY);
+    const saved=JSON.parse(sessionStorage.getItem(MAP_VIEW_KEY)??'null') as StoredMapView|null;
+    if(!saved||saved.version!==7)return null;
+    const values=[saved.zoom,saved.pan?.x,saved.pan?.y,saved.viewport?.width,saved.viewport?.height];
+    if(values.some(value=>!Number.isFinite(value))||saved.viewport.width<=0||saved.viewport.height<=0||Math.abs(saved.pan.x)>5000||Math.abs(saved.pan.y)>5000)return null;
+    return {...saved,zoom:clampMapZoom(saved.zoom)};
+  }catch{return null;}
 }
 
 function geometryRings(geometry:AdministrativeGeometry):number[][][]{
@@ -119,6 +134,15 @@ function geometryCenter(geometry:AdministrativeGeometry):[number,number]{
   const points=geometryRings(geometry).flat();
   const longitudes=points.map(point=>point[0]),latitudes=points.map(point=>point[1]);
   return projectCoordinate([(Math.min(...longitudes)+Math.max(...longitudes))/2,(Math.min(...latitudes)+Math.max(...latitudes))/2]);
+}
+
+function nationalFit(provinces:HistoricalProvince[]){
+  const points=provinces.flatMap(province=>geometryRings(province.geometry).flat().map(([longitude,latitude])=>projectCoordinate([longitude,latitude])));
+  if(!points.length)return {zoom:1,pan:{x:0,y:0}};
+  const xs=points.map(point=>point[0]),ys=points.map(point=>point[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const zoom=clampMapZoom(Math.min(952/Math.max(1,maxX-minX),512/Math.max(1,maxY-minY)));
+  return {zoom,pan:{x:500-((minX+maxX)/2)*zoom,y:280-((minY+maxY)/2)*zoom}};
 }
 
 interface LocalProjection {
@@ -185,17 +209,19 @@ function ProvinceDetail({province,onReturn}:{province:HistoricalProvince;onRetur
   const [selectedSiteId,setSelectedSiteId]=useState<string|null>(null);
   const selectedSite=provinceSites.find(site=>site.id===selectedSiteId)??null;
   const selectSite=(site:HistoricalSite)=>{setSelectedSiteId(site.id);record('local-site-inspected');audioManager.play('mapSelect');};
-  const sourceTitles=province.sourceIds.map(id=>provinceSources.find(source=>source.id===id)?.title).filter((title):title is string=>Boolean(title));
+  const administration=getProvinceAdministration(province,campaign.currentDate);
+  const displayName=getProvinceDisplayName(province,campaign.currentDate);
+  const sourceTitles=Array.from(new Set([...province.sourceIds,...(administration?.sourceIds??[])])).map(id=>provinceSources.find(source=>source.id===id)?.title).filter((title):title is string=>Boolean(title));
   const capital=provinceCities.find(city=>city.id===province.capitalCityId);
   return <div className={styles.provinceDetail} data-testid="province-detail-view" data-province-id={province.id}>
     <div className={styles.localAtlas}>
-      <svg viewBox="0 0 620 470" role="img" aria-label={`Geographic province atlas of ${province.name1921}`}>
+      <svg viewBox="0 0 620 470" role="img" aria-label={`Geographic province atlas of ${displayName}`}>
         <defs>
           <pattern id="local-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24"/></pattern>
           <clipPath id="province-local-clip"><path d={projection.path(detailedProvince.geometry)}/></clipPath>
         </defs>
         <rect width="620" height="470" className={styles.localPaper}/><rect width="620" height="470" fill="url(#local-grid)" className={styles.localGrid}/>
-        <g className={styles.localNeighbors}>{neighbors.map(neighbor=><path key={neighbor.id} d={projection.path(neighbor.geometry)}><title>{neighbor.name1921}</title></path>)}</g>
+        <g className={styles.localNeighbors}>{neighbors.map(neighbor=><path key={neighbor.id} d={projection.path(neighbor.geometry)}><title>{getProvinceDisplayName(neighbor,campaign.currentDate)}</title></path>)}</g>
         <path d={projection.path(detailedProvince.geometry)} className={styles.localLand}/>
         <g clipPath="url(#province-local-clip)">
           <g className={styles.localDistricts} data-testid="local-district-layer">{districts.map(district=><path key={district.id} d={projection.path(district.geometry)}><title>{district.name1921}</title></path>)}</g>
@@ -210,12 +236,12 @@ function ProvinceDetail({province,onReturn}:{province:HistoricalProvince;onRetur
       <div className={styles.localScale}><i/>Geographic extent · longitude/latitude source geometry</div>
     </div>
     <aside className={styles.siteLedger}>
-      <p>Province atlas · {formatGameDate(campaign.currentDate)}</p><h2>{province.name1921}</h2><span>{province.administrativeType} · {FORMAL_GOVERNMENT_NAMES[province.formalGovernmentId]??humanize(province.formalGovernmentId)}</span>
+      <p>Province atlas · {formatGameDate(campaign.currentDate)}</p><h2>{displayName}</h2><span>{administration?.administrativeType??'Administrative status unavailable'} · {administration?(FORMAL_GOVERNMENT_NAMES[administration.formalGovernmentId]??humanize(administration.formalGovernmentId)):'Unassigned'}</span>
       <dl>
         <div><dt>Capital</dt><dd>{capital?.name??'No verified capital point in dataset'}</dd></div>
         <div><dt>Districts</dt><dd>{districts.length||'Detailed subdivisions unavailable'}</dd></div>
         <div><dt>Transport</dt><dd>{provinceRailways.length} railway · {provinceRivers.length} river segments</dd></div>
-        <div><dt>Neighbors</dt><dd>{neighbors.length?neighbors.map(item=>item.name1921.replace(' Governorate','')).join(', '):'No shared land boundary recorded'}</dd></div>
+        <div><dt>Neighbors</dt><dd>{neighbors.length?neighbors.map(item=>getProvinceDisplayName(item,campaign.currentDate).replace(' Governorate','')).join(', '):'No shared land boundary recorded'}</dd></div>
         <div><dt>Strategic context</dt><dd>{content.regions.find(item=>item.id===province.strategicRegionId)?.name}</dd></div>
         <div><dt>Boundary confidence</dt><dd>{humanize(province.confidence)}</dd></div>
       </dl>
@@ -224,7 +250,7 @@ function ProvinceDetail({province,onReturn}:{province:HistoricalProvince;onRetur
       {organizers.length>0&&<section className={styles.localContext}><h3>Assigned organizers</h3>{organizers.map(organizer=><p key={organizer.id}>{organizer.name} · {organizer.assignment??'regional assignment'}</p>)}</section>}
       <h3>Geographic sites</h3>{provinceSites.length?provinceSites.map((site,index)=><button key={site.id} data-tutorial={index===0?'local-site':undefined} className={selectedSiteId===site.id?styles.activeSite:''} onClick={()=>selectSite(site)}><svg viewBox="-14 -14 28 28" aria-hidden="true"><SiteIcon kind={site.kind}/></svg><span><strong>{site.name}</strong><small>{humanize(site.kind)} · {classificationLabel(site.classification)}</small></span></button>):<p className={styles.unavailableNotice}>No verified or explicitly classified site is available for this province.</p>}
       {selectedSite&&<article><b>{selectedSite.name}</b><p>{selectedSite.notes??humanize(selectedSite.kind)}</p><small>{classificationLabel(selectedSite.classification)} · coordinate-assigned site</small></article>}
-      <details className={styles.researchNotes}><summary>Research Notes</summary><p>{province.notes}</p><p>{sourceTitles.length?sourceTitles.join(' · '):'Full reconstruction references are catalogued in the cartographic documentation.'}</p><p>Valid {province.validFrom}{province.validUntil?`–${province.validUntil}`:' onward'} · {humanize(province.reconstructionOperation)}</p></details>
+      <details className={styles.researchNotes}><summary>Research Notes</summary><p>{province.notes}</p><p>{sourceTitles.length?sourceTitles.join(' · '):'Full reconstruction references are catalogued in the cartographic documentation.'}</p><p>Geographic partition valid {province.geographicValidFrom}{province.geographicValidUntil?`–${province.geographicValidUntil}`:' onward'} · current administration valid {administration?.validFrom??'unavailable'}{administration?.validUntil?`–${administration.validUntil}`:' onward'} · {humanize(province.reconstructionOperation)}</p></details>
       <button className={styles.returnAtlas} onClick={onReturn}>← Return to national atlas</button>
     </aside>
   </div>;
@@ -252,8 +278,9 @@ export function GeographicMap(){
   const record=useGameStore(state=>state.recordTutorialMilestone);
   const preferences=useGameStore(state=>state.preferences);
   const initialView=useMemo(loadMapView,[]);
-  const [zoom,setZoom]=useState(initialView.zoom);
-  const [pan,setPan]=useState(initialView.pan);
+  const [zoom,setZoom]=useState(initialView?.zoom??1);
+  const [pan,setPan]=useState(initialView?.pan??{x:0,y:0});
+  const [viewport,setViewport]=useState({width:0,height:0});
   const [dragging,setDragging]=useState(false);
   const [activeTheater,setActiveTheater]=useState<string|null>(null);
   const [appearance,setAppearance]=useState<AppearancePreset>('historical_atlas');
@@ -263,11 +290,17 @@ export function GeographicMap(){
     railways:true,rivers:true,provinceBorders:true,formalBorders:true,strategicAggregates:false,
     operations:true,activity:true,
   });
-  const dragOrigin=useRef<{x:number;y:number;panX:number;panY:number}|null>(null);
+  const mapFrameRef=useRef<HTMLDivElement|null>(null);
+  const restoredViewValidated=useRef(false);
+  const dragOrigin=useRef<{x:number;y:number;panX:number;panY:number;provinceId:string|null}|null>(null);
   const didPan=useRef(false);
 
   const activeProvinces=useMemo(()=>historicalProvinces.filter(province=>isProvinceActive(province,campaign.currentDate)),[campaign.currentDate]);
+  const fitView=useMemo(()=>nationalFit(activeProvinces),[activeProvinces]);
   const selectedProvince=activeProvinces.find(item=>item.id===selectedProvinceId)??null;
+  const selectedAdministration=selectedProvince?getProvinceAdministration(selectedProvince,campaign.currentDate):undefined;
+  const selectedDisplayName=selectedProvince?getProvinceDisplayName(selectedProvince,campaign.currentDate):null;
+  const activeFormalBoundaries=useMemo(()=>formalGovernmentBoundaries.filter(boundary=>isFormalGovernmentBoundaryActive(boundary,campaign.currentDate)),[campaign.currentDate]);
   const values=Object.values(campaign.regions).map(region=>getRegionValueForMode(region,mapMode));
   const min=Math.min(...values),max=Math.max(...values);
   const legend=getLegendForMode(mapMode,campaign.regions);
@@ -312,14 +345,26 @@ export function GeographicMap(){
     return [...byRegion.values()].sort((a,b)=>b.priority-a.priority).slice(0,12).map(marker=>{const boundary=strategicAggregateBoundaries.find(item=>item.id===marker.regionId);return boundary?{...marker,point:geometryCenter(boundary.geometry)}:null;}).filter((marker):marker is {regionId:string;kind:string;label:string;priority:number;point:[number,number]}=>Boolean(marker));
   },[campaign.activeOperations,campaign.currentDate,campaign.newspapers,campaign.regions]);
 
-  const formalLabels=useMemo(()=>formalGovernmentBoundaries.filter(boundary=>MAJOR_FORMAL_LABELS.has(boundary.id)).map(boundary=>({boundary,point:geometryCenter(boundary.geometry)})),[]);
+  const formalLabels=useMemo(()=>activeFormalBoundaries.filter(boundary=>MAJOR_FORMAL_LABELS.has(boundary.governmentId)).map(boundary=>({boundary,point:geometryCenter(boundary.geometry)})),[activeFormalBoundaries]);
   const fillFor=(region:RegionState)=>mapMode==='political_influence'?'#67272b':valueToColor(getRegionValueForMode(region,mapMode),min,max);
 
-  useEffect(()=>{try{sessionStorage.setItem(MAP_VIEW_KEY,JSON.stringify({zoom,pan}));}catch{/* optional */}},[pan,zoom]);
+  useEffect(()=>{
+    const node=mapFrameRef.current;if(!node)return;
+    const update=()=>{const rect=node.getBoundingClientRect();setViewport({width:Math.round(rect.width),height:Math.round(rect.height)});};
+    update();
+    const observer=new ResizeObserver(update);observer.observe(node);return()=>observer.disconnect();
+  },[]);
+  useEffect(()=>{
+    if(!viewport.width||!viewport.height||restoredViewValidated.current)return;
+    const incompatible=!initialView||Math.abs(initialView.viewport.width-viewport.width)/viewport.width>.2||Math.abs(initialView.viewport.height-viewport.height)/viewport.height>.2;
+    if(incompatible){setZoom(fitView.zoom);setPan(fitView.pan);}
+    restoredViewValidated.current=true;
+  },[fitView,initialView,viewport]);
+  useEffect(()=>{if(!viewport.width||!viewport.height||!restoredViewValidated.current)return;try{sessionStorage.setItem(MAP_VIEW_KEY,JSON.stringify({version:7,zoom,pan,viewport}));}catch{/* optional */}},[pan,viewport,zoom]);
 
   const changeZoom=(next:number,anchor={x:500,y:280})=>{const clamped=clampMapZoom(next),ratio=clamped/zoom;setPan(current=>({x:anchor.x-(anchor.x-current.x)*ratio,y:anchor.y-(anchor.y-current.y)*ratio}));setZoom(clamped);setActiveTheater(null);};
   const returnToMap=()=>{setView('national');queueMicrotask(()=>record('national-map-viewed'));};
-  const reset=()=>{returnToMap();setZoom(1);setPan({x:0,y:0});selectProvince(null);selectRegion(null);setActiveTheater(null);};
+  const reset=()=>{returnToMap();setZoom(fitView.zoom);setPan(fitView.pan);selectProvince(null);selectRegion(null);setActiveTheater(null);};
   const chooseProvince=(id:string)=>{const province=activeProvinces.find(item=>item.id===id);if(!province)return;selectProvince(id);record('province-selected');audioManager.play('mapSelect');};
   const enterProvince=()=>{if(!selectedProvince)return;setView('province');queueMicrotask(()=>record('province-detail-entered'));audioManager.play('dossier');};
   const openTheater=(theater:TheaterDefinition)=>{const [x,y]=projectCoordinate(theater.center);setView('national');setZoom(theater.zoom);setPan({x:500-x*theater.zoom,y:280-y*theater.zoom});setActiveTheater(theater.id);queueMicrotask(()=>record(`theater-${theater.id}`));};
@@ -332,41 +377,43 @@ export function GeographicMap(){
   };
   const setLayer=(key:keyof MapLayers,value:boolean)=>setLayers(current=>({...current,[key]:value}));
   const onWheel=(event:WheelEvent<HTMLDivElement>)=>{if(view!=='national')return;event.preventDefault();const rect=event.currentTarget.getBoundingClientRect();changeZoom(zoom*(event.deltaY<0?1.12:.89),{x:((event.clientX-rect.left)/rect.width)*1000,y:((event.clientY-rect.top)/rect.height)*560});};
-  const onPointerDown=(event:PointerEvent<SVGSVGElement>)=>{if(event.button!==0||view!=='national')return;event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);didPan.current=false;dragOrigin.current={x:event.clientX,y:event.clientY,panX:pan.x,panY:pan.y};};
+  const onPointerDown=(event:PointerEvent<SVGSVGElement>)=>{if(event.button!==0||view!=='national')return;event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);didPan.current=false;const target=event.target instanceof Element?event.target.closest<SVGPathElement>('[data-province-id]'):null;dragOrigin.current={x:event.clientX,y:event.clientY,panX:pan.x,panY:pan.y,provinceId:target?.dataset.provinceId??null};};
   const onPointerMove=(event:PointerEvent<SVGSVGElement>)=>{const origin=dragOrigin.current;if(!origin)return;const dx=event.clientX-origin.x,dy=event.clientY-origin.y;if(!didPan.current&&Math.hypot(dx,dy)<DRAG_THRESHOLD)return;didPan.current=true;setDragging(true);const rect=event.currentTarget.getBoundingClientRect();setPan({x:origin.panX+dx*(1000/rect.width),y:origin.panY+dy*(560/rect.height)});setActiveTheater(null);};
-  const endDrag=()=>{setDragging(false);dragOrigin.current=null;requestAnimationFrame(()=>{didPan.current=false;});};
+  const endPointer=(event:PointerEvent<SVGSVGElement>)=>{const origin=dragOrigin.current;const selectId=!didPan.current?origin?.provinceId:null;setDragging(false);dragOrigin.current=null;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);if(selectId)chooseProvince(selectId);requestAnimationFrame(()=>{didPan.current=false;});};
+  const cancelPointer=()=>{setDragging(false);dragOrigin.current=null;didPan.current=false;};
   const keyboardProvince=(event:KeyboardEvent<SVGPathElement>,id:string)=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();chooseProvince(id);}};
   const overviewRect={x:Math.max(0,-pan.x/zoom),y:Math.max(0,-pan.y/zoom),width:Math.min(1000,1000/zoom),height:Math.min(560,560/zoom)};
+  const layerControls=<div className={styles.layerBar}>
+    <label><input data-testid="toggle-province-borders" type="checkbox" checked={layers.provinceBorders} onChange={event=>setLayer('provinceBorders',event.target.checked)}/> provinces</label>
+    <button type="button" data-testid="toggle-formal-boundaries" aria-pressed={layers.formalBorders} onClick={()=>setLayer('formalBorders',!layers.formalBorders)}>formal governments</button>
+    <button type="button" data-testid="toggle-strategic-aggregates" aria-pressed={layers.strategicAggregates} onClick={()=>setLayer('strategicAggregates',!layers.strategicAggregates)}>strategic aggregates</button>
+    <label><input data-testid="toggle-influence" type="checkbox" checked={layers.influence} onChange={event=>setLayer('influence',event.target.checked)}/> influence contours</label>
+    <label><input type="checkbox" checked={layers.dominant} disabled={!layers.influence} onChange={event=>setLayer('dominant',event.target.checked)}/> dominant factions</label>
+    <label><input type="checkbox" checked={layers.contested} disabled={!layers.influence} onChange={event=>setLayer('contested',event.target.checked)}/> contested</label>
+    <label><input type="checkbox" checked={layers.uncertainty} disabled={!layers.influence} onChange={event=>setLayer('uncertainty',event.target.checked)}/> uncertainty</label>
+    <label><input type="checkbox" checked={layers.nodes} disabled={!layers.influence} onChange={event=>setLayer('nodes',event.target.checked)}/> political nodes</label>
+    <label><input type="checkbox" checked={layers.cities} onChange={event=>setLayer('cities',event.target.checked)}/> cities</label>
+    <label><input data-testid="toggle-railways" type="checkbox" checked={layers.railways} onChange={event=>setLayer('railways',event.target.checked)}/> railways</label>
+    <label><input data-testid="toggle-rivers" type="checkbox" checked={layers.rivers} onChange={event=>setLayer('rivers',event.target.checked)}/> rivers</label>
+    <label><input type="checkbox" checked={layers.activity} onChange={event=>setLayer('activity',event.target.checked)}/> activity</label>
+    <label>opacity <input aria-label="Influence opacity" type="range" min="0.15" max="0.9" step="0.05" value={opacity} disabled={!layers.influence} onChange={event=>setOpacity(Number(event.target.value))}/></label>
+  </div>;
 
   return <section className={`${styles.mapStage} ${styles[appearance]}`} aria-label="Historical administrative atlas" data-tutorial="map-navigation">
-    <div className={styles.toolbar}><div><strong>{view==='province'&&selectedProvince?selectedProvince.name1921:getMapModeLabel(mapMode)}</strong><span>{view==='province'?'Real province outline, subdivisions, transport, and classified sites':getMapModeDescription(mapMode)}</span></div><div className={styles.mapActions}>
+    <div className={styles.toolbar}><div><strong>{selectedDisplayName??getMapModeLabel(mapMode)}</strong><span>{view==='province'?'Real province outline, subdivisions, transport, and classified sites':selectedProvince?'Selected directly on the map · open the province atlas for detail':getMapModeDescription(mapMode)}</span></div><div className={styles.mapActions}>
       <button data-tutorial="map-national" data-testid="reset-map" onClick={reset}>Full map</button>
       {view==='national'&&<><button data-testid="zoom-out" aria-label="Zoom out map" onClick={()=>changeZoom(zoom/1.25)}>−</button><output aria-label="Map zoom">{Math.round(zoom*100)}%</output><button data-testid="zoom-in" aria-label="Zoom in map" onClick={()=>changeZoom(zoom*1.25)}>+</button></>}
-      <select aria-label="Map appearance preset" value={appearance} onChange={event=>applyAppearance(event.target.value as AppearancePreset)}><option value="historical_atlas">Historical Atlas</option><option value="political_intelligence">Political Intelligence</option><option value="economic_planning">Economic Planning</option><option value="minimal_accessibility">Minimal Accessibility</option></select>
-      <select data-tutorial="province-selector" aria-label="Select historical province" value={selectedProvinceId??''} onChange={event=>event.target.value?chooseProvince(event.target.value):reset()}><option value="">Select historical province…</option>{activeProvinces.map(province=><option value={province.id} key={province.id}>{province.name1921} · {province.administrativeType}</option>)}</select>
+      {preferences.interfaceDetail==='expert'&&<select aria-label="Map appearance preset" value={appearance} onChange={event=>applyAppearance(event.target.value as AppearancePreset)}><option value="historical_atlas">Historical Atlas</option><option value="political_intelligence">Political Intelligence</option><option value="economic_planning">Economic Planning</option><option value="minimal_accessibility">Minimal Accessibility</option></select>}
+      <select data-tutorial="province-selector" aria-label="Select historical province" value={selectedProvinceId??''} onChange={event=>event.target.value?chooseProvince(event.target.value):reset()}><option value="">Select historical province…</option>{activeProvinces.map(province=>{const administration=getProvinceAdministration(province,campaign.currentDate);return <option value={province.id} key={province.id}>{getProvinceDisplayName(province,campaign.currentDate)} · {administration?.administrativeType??'unassigned'}</option>;})}</select>
       <button data-tutorial="province-detail" data-testid="enter-province" disabled={!selectedProvince} onClick={enterProvince}>Province detail</button>
-      {view==='national'&&<select data-tutorial="map-mode" aria-label="Map mode" value={mapMode} onChange={event=>setMapMode(event.target.value as MapMode)}>{MAP_MODES.map(mode=><option key={mode} value={mode}>{getMapModeLabel(mode)}</option>)}</select>}
+      {view==='national'&&preferences.interfaceDetail==='expert'&&<select data-tutorial="map-mode" aria-label="Map mode" value={mapMode} onChange={event=>setMapMode(event.target.value as MapMode)}>{MAP_MODES.map(mode=><option key={mode} value={mode}>{getMapModeLabel(mode)}</option>)}</select>}
     </div></div>
     {view==='national'&&<>
-      <nav className={styles.theaterBar} aria-label="Geographic theaters"><span>Theaters</span>{THEATERS.map(theater=><button key={theater.id} aria-pressed={activeTheater===theater.id} onClick={()=>openTheater(theater)}>{theater.label}</button>)}{zoom>1.05&&<button onClick={reset}>Return to Full Map</button>}</nav>
-      <div className={styles.layerBar}>
-        <label><input data-testid="toggle-province-borders" type="checkbox" checked={layers.provinceBorders} onChange={event=>setLayer('provinceBorders',event.target.checked)}/> provinces</label>
-        <button type="button" data-testid="toggle-formal-boundaries" aria-pressed={layers.formalBorders} onClick={()=>setLayer('formalBorders',!layers.formalBorders)}>formal governments</button>
-        <button type="button" data-testid="toggle-strategic-aggregates" aria-pressed={layers.strategicAggregates} onClick={()=>setLayer('strategicAggregates',!layers.strategicAggregates)}>strategic aggregates</button>
-        <label><input data-testid="toggle-influence" type="checkbox" checked={layers.influence} onChange={event=>setLayer('influence',event.target.checked)}/> influence contours</label>
-        <label><input type="checkbox" checked={layers.dominant} disabled={!layers.influence} onChange={event=>setLayer('dominant',event.target.checked)}/> dominant factions</label>
-        <label><input type="checkbox" checked={layers.contested} disabled={!layers.influence} onChange={event=>setLayer('contested',event.target.checked)}/> contested</label>
-        <label><input type="checkbox" checked={layers.uncertainty} disabled={!layers.influence} onChange={event=>setLayer('uncertainty',event.target.checked)}/> uncertainty</label>
-        <label><input type="checkbox" checked={layers.nodes} disabled={!layers.influence} onChange={event=>setLayer('nodes',event.target.checked)}/> political nodes</label>
-        <label><input type="checkbox" checked={layers.cities} onChange={event=>setLayer('cities',event.target.checked)}/> cities</label>
-        <label><input data-testid="toggle-railways" type="checkbox" checked={layers.railways} onChange={event=>setLayer('railways',event.target.checked)}/> railways</label>
-        <label><input data-testid="toggle-rivers" type="checkbox" checked={layers.rivers} onChange={event=>setLayer('rivers',event.target.checked)}/> rivers</label>
-        <label><input type="checkbox" checked={layers.activity} onChange={event=>setLayer('activity',event.target.checked)}/> activity</label>
-        <label>opacity <input aria-label="Influence opacity" type="range" min="0.15" max="0.9" step="0.05" value={opacity} disabled={!layers.influence} onChange={event=>setOpacity(Number(event.target.value))}/></label>
-      </div>
+      <nav className={styles.theaterBar} aria-label="Geographic theaters"><span>Theaters</span>{THEATERS.map(theater=><button key={theater.id} aria-pressed={activeTheater===theater.id} onClick={()=>openTheater(theater)}>{theater.label}</button>)}{Math.abs(zoom-fitView.zoom)>.04&&<button onClick={reset}>Return to Full Map</button>}</nav>
+      {preferences.interfaceDetail==='expert'?layerControls:<details className={styles.standardMapOptions}><summary>Map options and overlays</summary>{layerControls}</details>}
     </>}
-    <div className={styles.mapFrame} onWheel={onWheel} data-testid="geographic-map">
-      {view==='province'&&selectedProvince?<ProvinceDetail province={selectedProvince} onReturn={returnToMap}/>:<svg viewBox="0 0 1000 560" className={styles.map} role="group" aria-label={`${getMapModeLabel(mapMode)} historical province map`} onDragStart={event=>event.preventDefault()} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag} onKeyDown={event=>{if(event.key==='+')changeZoom(zoom*1.25);if(event.key==='-')changeZoom(zoom/1.25);if(event.key==='0'||event.key==='Escape')reset();}}>
+    <div ref={mapFrameRef} className={styles.mapFrame} onWheel={onWheel} data-testid="geographic-map">
+      {view==='province'&&selectedProvince?<ProvinceDetail province={selectedProvince} onReturn={returnToMap}/>:<svg viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" className={styles.map} role="group" aria-label={`${getMapModeLabel(mapMode)} historical province map`} onDragStart={event=>event.preventDefault()} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endPointer} onPointerCancel={cancelPointer} onKeyDown={event=>{if(event.key==='+')changeZoom(zoom*1.25);if(event.key==='-')changeZoom(zoom/1.25);if(event.key==='0'||event.key==='Escape')reset();}}>
         <defs>
           <pattern id="contested-hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(35)"><line y2="8" stroke="#f2d7a6" strokeOpacity=".8" strokeWidth="2"/></pattern>
           <pattern id="uncertain-hatch" patternUnits="userSpaceOnUse" width="11" height="11"><path d="M0 11L11 0M-3 3L3-3M8 14L14 8" stroke="#d8d1c2" strokeOpacity=".55" strokeWidth="1.3"/></pattern>
@@ -381,14 +428,14 @@ export function GeographicMap(){
           {layers.railways&&<g className={styles.railways} data-testid="railway-layer">{railwaysForTier.map(railway=><path key={railway.id} d={getLinePath(railway)} className={railway.importance===1?styles.primaryRail:styles.secondaryRail}><title>{railway.name}</title></path>)}</g>}
           {mapMode==='political_influence'&&layers.influence&&<g data-testid="influence-layer" clipPath="url(#territory-clip)" opacity={opacity} className={styles.influenceContours}>{contourBands.map((band,index)=><path key={`${band.faction}-${band.threshold}`} d={band.path} fill={FACTION_COLORS[band.faction]??'#766'} fillOpacity={.09+index%3*.08} data-faction={band.faction} data-threshold={band.threshold}/>)}{layers.contested&&<path d={contestedPath} fill="url(#contested-hatch)" className={styles.contestedZones}/>} {layers.uncertainty&&<path d={uncertaintyPath} fill="url(#uncertain-hatch)" className={styles.uncertainZones}/>}</g>}
           {mapMode==='political_influence'&&layers.influence&&layers.nodes&&<g className={styles.politicalNodes} data-testid="political-node-layer">{influenceNodes.map(node=><circle key={node.id} cx={node.x} cy={node.y} r="1.8"><title>Political influence node · {humanize(node.regionId)}</title></circle>)}</g>}
-          {layers.formalBorders&&<g className={styles.formalBoundaries} data-testid="formal-boundary-layer">{formalGovernmentBoundaries.map(boundary=><path key={boundary.id} d={getAdministrativePath(boundary.geometry)}><title>{FORMAL_GOVERNMENT_NAMES[boundary.id]??humanize(boundary.id)}</title></path>)}{formalLabels.map(({boundary,point})=><text key={boundary.id} x={point[0]} y={point[1]}>{FORMAL_GOVERNMENT_NAMES[boundary.id]??humanize(boundary.id)}</text>)}</g>}
+          {layers.formalBorders&&<g className={styles.formalBoundaries} data-testid="formal-boundary-layer">{activeFormalBoundaries.map(boundary=><path key={boundary.id} d={getAdministrativePath(boundary.geometry)}><title>{FORMAL_GOVERNMENT_NAMES[boundary.governmentId]??humanize(boundary.governmentId)}</title></path>)}{formalLabels.map(({boundary,point})=><text key={boundary.id} x={point[0]} y={point[1]}>{FORMAL_GOVERNMENT_NAMES[boundary.governmentId]??humanize(boundary.governmentId)}</text>)}</g>}
           {layers.strategicAggregates&&<g className={styles.strategicOverlay} data-testid="strategic-aggregate-layer">{strategicAggregateBoundaries.map(boundary=><path key={boundary.id} d={getAdministrativePath(boundary.geometry)}><title>{content.regions.find(region=>region.id===boundary.id)?.name??humanize(boundary.id)} · generated province dissolve</title></path>)}</g>}
-          <g className={`${styles.provinces} ${layers.provinceBorders?'':styles.noBorders}`} data-testid="province-boundary-layer">{activeProvinces.map(province=>{const selected=province.id===selectedProvinceId;return <path key={province.id} d={getProvincePath(province)} className={selected?styles.selectedProvince:styles.province} role="button" tabIndex={0} aria-label={`${province.name1921}, ${province.administrativeType}`} data-province-id={province.id} onClick={event=>{event.stopPropagation();chooseProvince(province.id);}} onDoubleClick={event=>{event.stopPropagation();chooseProvince(province.id);setView('province');record('province-detail-entered');}} onKeyDown={event=>keyboardProvince(event,province.id)}><title>{province.name1921} · {province.administrativeType} · {province.confidence} boundary confidence</title></path>;})}{provinceLabels.map(({province,point})=><text key={province.id} x={point[0]} y={point[1]} className={styles.provinceLabel}>{province.name1921.replace(' Governorate','').replace(' Oblast','')}</text>)}</g>
+          <g className={`${styles.provinces} ${layers.provinceBorders?'':styles.noBorders}`} data-testid="province-boundary-layer">{activeProvinces.map(province=>{const selected=province.id===selectedProvinceId;const administration=getProvinceAdministration(province,campaign.currentDate);const name=getProvinceDisplayName(province,campaign.currentDate);return <path key={province.id} d={getProvincePath(province)} className={selected?styles.selectedProvince:styles.province} role="button" tabIndex={0} aria-pressed={selected} aria-label={`${name}, ${administration?.administrativeType??'administrative status unavailable'}`} data-province-id={province.id} data-selected={selected} onDoubleClick={event=>{event.stopPropagation();chooseProvince(province.id);setView('province');record('province-detail-entered');}} onKeyDown={event=>keyboardProvince(event,province.id)}><title>{name} · {administration?.administrativeType??'unassigned'} · {province.confidence} boundary confidence</title></path>;})}{provinceLabels.map(({province,point})=><text key={province.id} x={point[0]} y={point[1]} className={styles.provinceLabel}>{getProvinceDisplayName(province,campaign.currentDate).replace(' Governorate','').replace(' Oblast','')}</text>)}</g>
           {layers.cities&&<g className={styles.cities} data-testid="city-layer">{cityLayout.filter(layout=>layout.dotVisible).map(layout=>{const city=cityById.get(layout.id)!;const radius=city.populationCategory==='metropolis'?4.8:city.populationCategory==='major'?3.4:2.3;const province=activeProvinces.find(item=>item.id===city.provinceId);return <g key={city.id} data-city-id={city.id} data-label-visible={layout.labelVisible} tabIndex={0} role="button" aria-label={city.name} onClick={event=>{event.stopPropagation();if(province)chooseProvince(province.id);}}><circle cx={layout.x} cy={layout.y} r={radius}/>{layout.labelVisible&&<line x1={layout.x} y1={layout.y} x2={layout.labelX-1} y2={layout.labelY-2}/>}<text x={layout.labelX} y={layout.labelY} className={layout.labelVisible?'':styles.hoverLabel}>{city.name}</text><title>{city.name}{city.modernName?` (modern ${city.modernName})`:''} · {city.importanceTier} center</title></g>;})}</g>}
           {layers.activity&&<g className={styles.activityMarkers} data-testid="activity-marker-layer">{activityMarkers.map(marker=><g key={marker.regionId} transform={`translate(${marker.point[0]} ${marker.point[1]})`} className={styles[`activity_${marker.kind}`]} data-activity-kind={marker.kind} role="button" tabIndex={0} aria-label={marker.label} onClick={()=>{const province=activeProvinces.find(item=>item.strategicRegionId===marker.regionId);if(province)chooseProvince(province.id);}}>{marker.kind==='operation'&&<circle className={styles.operationRing} r="10"/>}<path d="M0-6L6 0 0 6-6 0Z"/><circle r="2"/><title>{marker.label}</title></g>)}</g>}
         </g>
       </svg>}
-      {view==='national'&&<><div className={styles.compass} aria-hidden="true"><b>N</b><i/></div><div className={styles.overview}>real province topology · {activeProvinces.length} active units · {Math.round(zoom*100)}%</div><div className={styles.mapNote}>March 1921 reconstruction · strategic aggregates hidden by default</div>{zoom>=1.45&&<div className={styles.nationalInset} aria-label="National overview indicator"><svg viewBox="0 0 1000 560"><g>{activeProvinces.map(province=><path key={province.id} d={getProvincePath(province)}/>)}</g><rect x={overviewRect.x} y={overviewRect.y} width={overviewRect.width} height={overviewRect.height}/></svg></div>}</>}
+      {view==='national'&&<><div className={styles.compass} aria-hidden="true"><b>N</b><i/></div><div className={styles.overview}>complete territorial mask · {activeProvinces.length} selectable units · {Math.round(zoom*100)}%</div><div className={styles.mapNote}>{formatGameDate(campaign.currentDate)} · geography and administration date-scoped separately</div>{zoom>=1.45&&<div className={styles.nationalInset} aria-label="National overview indicator"><svg viewBox="0 0 1000 560"><g>{activeProvinces.map(province=><path key={province.id} d={getProvincePath(province)}/>)}</g><rect x={overviewRect.x} y={overviewRect.y} width={overviewRect.width} height={overviewRect.height}/></svg></div>}{selectedProvince&&<aside className={styles.selectionFeedback} data-testid="province-selection-feedback" aria-live="polite"><span>Selected province</span><strong>{selectedDisplayName}</strong><small>{selectedAdministration?.administrativeType??'Administrative status unavailable'} · {FORMAL_GOVERNMENT_NAMES[selectedAdministration?.formalGovernmentId??'']??humanize(selectedAdministration?.formalGovernmentId??'unassigned')}</small><div><button onClick={enterProvince}>Open province atlas</button><button onClick={()=>selectProvince(null)}>Clear</button></div></aside>}</>}
     </div>
     <div className={styles.legend} aria-label="Map legend">{view==='national'?<>{mapMode==='political_influence'&&layers.influence?visibleFactions.map(faction=><span key={faction}><i style={{background:FACTION_COLORS[faction]??'#766'}}/>{humanize(faction)} contour</span>):legend.map(item=><span key={item.label}><i style={{background:item.color}}/>{item.label} {Math.round(item.min)}–{Math.round(item.max)}</span>)}<span><i className={styles.formalKey}/>formal government</span><span><i className={styles.boundaryKey}/>province</span>{layers.strategicAggregates&&<span><i className={styles.strategicKey}/>simulation aggregate · province dissolve</span>}<span>{formatGameDate(campaign.currentDate)} · GIS reconstruction</span></>:<span>Province-specific geographic detail · real clipped transport and district data only</span>}</div>
     <p className="sr-only">The national atlas displays GIS-derived historical provinces as the independent selectable geography. Optional strategic aggregates are generated by dissolving their member provinces and do not clip province paths.</p>

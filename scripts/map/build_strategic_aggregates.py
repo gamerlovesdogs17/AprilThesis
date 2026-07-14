@@ -20,8 +20,11 @@ def main() -> None:
         )
     )
     active = provinces[
-        (provinces.validFrom <= TARGET_DATE)
-        & (provinces.validUntil.isna() | (provinces.validUntil >= TARGET_DATE))
+        (provinces.geographicValidFrom <= TARGET_DATE)
+        & (
+            provinces.geographicValidUntil.isna()
+            | (provinces.geographicValidUntil >= TARGET_DATE)
+        )
     ].copy()
     dissolved = active.dissolve(by="strategicRegionId", as_index=False)
     dissolved["id"] = dissolved.strategicRegionId

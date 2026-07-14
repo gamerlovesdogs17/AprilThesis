@@ -15,6 +15,7 @@ from shapely.geometry import Point
 from _common import BUILD, MAP_DATA, QA, ensure_directories, read_json, require_file, write_json
 
 TARGET_DATE = "1921-03-01"
+CAMPAIGN_MONTHS = [f"1921-{month:02d}" for month in range(3, 9)]
 STRATEGIC_REGION_IDS = {
     "baltic_frontier", "petrograd", "karelia", "northern_russia", "belarus",
     "western_ukraine", "central_ukraine", "crimea", "moscow", "central_industrial",
@@ -30,10 +31,14 @@ PALETTE = [
 GEOD = Geod(ellps="WGS84")
 
 
-def active(frame):
+def active(frame, date=TARGET_DATE):
+    month = date[:7]
     return frame[
-        (frame.validFrom <= TARGET_DATE)
-        & (frame.validUntil.isna() | (frame.validUntil >= TARGET_DATE))
+        (frame.geographicValidFrom.str[:7] <= month)
+        & (
+            frame.geographicValidUntil.isna()
+            | (frame.geographicValidUntil.str[:7] >= month)
+        )
     ].copy()
 
 
@@ -43,6 +48,16 @@ def json_list(value) -> list[str]:
     if not value:
         return []
     return json.loads(value)
+
+
+def administration_for_month(value, month: str) -> dict | None:
+    periods = value if isinstance(value, list) else json.loads(value)
+    for period in periods:
+        valid_from = period["validFrom"][:7]
+        valid_until = period.get("validUntil")
+        if valid_from <= month and (valid_until is None or month <= valid_until[:7]):
+            return period
+    return None
 
 
 def project(longitude: float, latitude: float) -> tuple[float, float]:
@@ -121,9 +136,13 @@ def main() -> None:
     districts = gpd.read_file(
         require_file(BUILD / "districts-1921.gpkg", "Run district reconstruction first.")
     )
-    formal = gpd.read_file(
+    formal_all = gpd.read_file(
         require_file(BUILD / "formal-governments-1921.gpkg", "Run formal dissolve first.")
     )
+    formal = formal_all[
+        (formal_all.validFrom.str[:7] <= TARGET_DATE[:7])
+        & (formal_all.validUntil.str[:7] >= TARGET_DATE[:7])
+    ].copy()
     strategic = gpd.read_file(
         require_file(BUILD / "strategic-aggregates-1921.gpkg", "Run strategic dissolve first.")
     )
@@ -145,20 +164,31 @@ def main() -> None:
         ~provinces_all.geom_type.isin(["Polygon", "MultiPolygon"]), "id"
     ].tolist()
 
-    geographic = provinces.reset_index(drop=True)
     overlap_records = []
-    for left_index, left in geographic.iterrows():
-        for right_index in geographic.sindex.query(left.geometry, predicate="intersects"):
-            if int(right_index) <= int(left_index):
-                continue
-            right = geographic.iloc[int(right_index)]
-            intersection = left.geometry.intersection(right.geometry)
-            area_m2, _ = GEOD.geometry_area_perimeter(intersection)
-            area_km2 = abs(area_m2) / 1_000_000
-            if area_km2 > 5:
-                overlap_records.append(
-                    {"left": left.id, "right": right.id, "areaKm2": round(area_km2, 3)}
-                )
+    monthly_masks = {}
+    for month in CAMPAIGN_MONTHS:
+        geographic = active(provinces_all, month).reset_index(drop=True)
+        monthly_masks[month] = geographic.geometry.union_all()
+        for left_index, left in geographic.iterrows():
+            for right_index in geographic.sindex.query(left.geometry, predicate="intersects"):
+                if int(right_index) <= int(left_index):
+                    continue
+                right = geographic.iloc[int(right_index)]
+                intersection = left.geometry.intersection(right.geometry)
+                area_m2, _ = GEOD.geometry_area_perimeter(intersection)
+                area_km2 = abs(area_m2) / 1_000_000
+                if area_km2 > 5:
+                    overlap_records.append(
+                        {"month": month, "left": left.id, "right": right.id, "areaKm2": round(area_km2, 3)}
+                    )
+    march_mask = monthly_masks[CAMPAIGN_MONTHS[0]]
+    monthly_territorial_changes = []
+    for month, mask in monthly_masks.items():
+        difference = march_mask.symmetric_difference(mask)
+        area_m2, _ = GEOD.geometry_area_perimeter(difference)
+        area_km2 = abs(area_m2) / 1_000_000
+        if area_km2 > 5:
+            monthly_territorial_changes.append({"month": month, "differenceKm2": round(area_km2, 3)})
 
     province_lookup = {row.id: row.geometry for row in provinces.itertuples()}
     city_outside = []
@@ -191,11 +221,24 @@ def main() -> None:
     missing_sources = [
         row.id for row in provinces_all.itertuples() if not json_list(row.sourceIds)
     ]
-    invalid_dates = [
+    invalid_geographic_dates = [
         row.id
         for row in provinces_all.itertuples()
-        if pd.notna(row.validUntil) and row.validFrom > row.validUntil
+        if pd.notna(row.geographicValidUntil)
+        and row.geographicValidFrom > row.geographicValidUntil
     ]
+    invalid_administrative_periods = []
+    missing_administrative_months = []
+    for row in provinces_all.itertuples():
+        periods = json.loads(row.administrativePeriods)
+        for period in periods:
+            if period.get("validUntil") and period["validFrom"] > period["validUntil"]:
+                invalid_administrative_periods.append(f"{row.id}:{period['validFrom']}")
+        for month in CAMPAIGN_MONTHS:
+            if row.geographicValidFrom[:7] <= month and (
+                pd.isna(row.geographicValidUntil) or month <= row.geographicValidUntil[:7]
+            ) and administration_for_month(periods, month) is None:
+                missing_administrative_months.append(f"{row.id}:{month}")
     missing_site_sources = [site["id"] for site in sites if not site.get("sourceIds")]
 
     territorial_mask = provinces.geometry.union_all()
@@ -215,6 +258,7 @@ def main() -> None:
         "invalidDistricts": invalid_districts,
         "invalidPolygonTypes": invalid_multi,
         "overlapsOverOneSquareKilometer": overlap_records,
+        "monthlyTerritorialMaskChanges": monthly_territorial_changes,
         "orphanDistrictProvinceIds": orphan_districts,
         "missingStrategicMappings": missing_strategic_mappings,
         "extraStrategicMappings": extra_strategic_mappings,
@@ -223,7 +267,9 @@ def main() -> None:
         "sitesOutsideAssignedProvince": site_outside,
         "railwaySegmentsOutsideTerritory": railway_outside,
         "riverSegmentsOutsideTerritory": river_outside,
-        "invalidDateRanges": invalid_dates,
+        "invalidGeographicDateRanges": invalid_geographic_dates,
+        "invalidAdministrativePeriods": invalid_administrative_periods,
+        "missingAdministrativeMonths": missing_administrative_months,
         "missingProvinceSourceMetadata": missing_sources,
         "missingSiteSourceMetadata": missing_site_sources,
     }
@@ -234,6 +280,7 @@ def main() -> None:
         "activeProvinceCount": len(provinces),
         "districtCount": len(districts),
         "formalGovernmentCount": len(formal),
+        "formalGovernmentSnapshotCount": len(formal_all),
         "strategicAggregateCount": len(strategic),
         "cityCount": len(cities),
         "siteCount": len(sites),
@@ -245,6 +292,9 @@ def main() -> None:
     write_json(QA / "geometry-validation-report.json", report)
 
     write_polygon_map(QA / "province-id-map.svg", provinces, "id", "March 1921 province IDs")
+    provinces["formalGovernmentId"] = provinces.administrativePeriods.map(
+        lambda value: administration_for_month(value, TARGET_DATE[:7])["formalGovernmentId"]
+    )
     write_polygon_map(
         QA / "province-confidence-map.svg", provinces, "confidence", "Boundary confidence"
     )
@@ -276,6 +326,7 @@ def main() -> None:
         f"- Polygon overlaps over 1 km²: {len(overlap_records)}\n"
         f"- Invalid active province geometries: {len(invalid_provinces)}\n"
         f"- Districts assigned to missing provinces: {len(orphan_districts)}\n"
+        f"- Monthly territorial-mask changes over 5 km²: {len(monthly_territorial_changes)}\n"
         f"- Small island/sliver parts under 10 km²: {sliver_count} (reported, not automatically severe)\n\n"
         "The reconstruction mask is the union of explicitly selected real source features. "
         "Territory excluded by treaty, foreign control, or unavailable fine reconstruction is not "

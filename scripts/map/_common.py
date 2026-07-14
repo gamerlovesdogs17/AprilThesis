@@ -22,6 +22,51 @@ MOSKVA_RIVER_SOURCE = OPENSTREETMAP_CACHE / "openstreetmap-moskva-river-2026-07-
 RULES_PATH = MAP_DATA / "province-changes-1921.json"
 
 
+def month_key(value: str) -> str:
+    return value[:7]
+
+
+def geographic_valid_from(rule: dict) -> str:
+    return rule.get("geographicValidFrom", rule.get("validFrom", rule["effectiveDate"]))
+
+
+def geographic_valid_until(rule: dict) -> str | None:
+    return rule.get("geographicValidUntil", rule.get("validUntil"))
+
+
+def is_geographically_active(rule: dict, date: str) -> bool:
+    month = month_key(date)
+    valid_from = month_key(geographic_valid_from(rule))
+    valid_until = geographic_valid_until(rule)
+    return valid_from <= month and (valid_until is None or month <= month_key(valid_until))
+
+
+def administrative_periods(rule: dict) -> list[dict]:
+    if rule.get("administrativePeriods"):
+        return rule["administrativePeriods"]
+    period = {
+        "validFrom": rule.get("validFrom", rule["effectiveDate"]),
+        "formalGovernmentId": rule["formalGovernmentId"],
+        "administrativeType": rule["administrativeType"],
+        "displayName": rule["name1921"],
+        "sourceIds": rule["sourceIds"],
+        "confidence": rule["confidence"],
+    }
+    if rule.get("validUntil"):
+        period["validUntil"] = rule["validUntil"]
+    return [period]
+
+
+def administration_for_date(rule: dict, date: str) -> dict:
+    month = month_key(date)
+    for period in administrative_periods(rule):
+        valid_from = month_key(period["validFrom"])
+        valid_until = period.get("validUntil")
+        if valid_from <= month and (valid_until is None or month <= month_key(valid_until)):
+            return period
+    raise SystemExit(f"Rule {rule['id']} has no administrative period for {month}.")
+
+
 def require_file(path: Path, hint: str) -> Path:
     if not path.exists():
         raise SystemExit(f"Missing required file: {path}\n{hint}")

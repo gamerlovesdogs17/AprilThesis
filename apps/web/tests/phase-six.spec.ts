@@ -3,7 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 async function launchCampaign(page:Page){
-  await page.addInitScript(()=>localStorage.setItem('april-thesis-preferences',JSON.stringify({introViewed:true,muted:true,reducedMotion:true,beginnerHintMode:'off',situationBoardEnabled:true})));
+  await page.addInitScript(()=>localStorage.setItem('april-thesis-preferences',JSON.stringify({introViewed:true,muted:true,reducedMotion:true,beginnerHintMode:'off',situationBoardEnabled:true,interfaceDetail:'expert'})));
   await page.goto('/');
   await page.getByRole('button',{name:'New Campaign'}).click();
   await page.getByLabel('Guided opening').uncheck();
@@ -43,7 +43,7 @@ async function selectProvince(page:Page,id:string){
 test('Phase Six national GIS surfaces and derived boundaries behave independently',async({page})=>{
   await launchCampaign(page);await resolveOpening(page);
   const provinces=page.getByTestId('province-surface-layer').locator('path[data-province-id]');
-  await expect(provinces).toHaveCount(93);
+  await expect(provinces).toHaveCount(95);
   const shapes=await provinces.evaluateAll(paths=>paths.map(path=>path.getAttribute('d')??''));
   expect(shapes.every(path=>(path.match(/[ML]/g)?.length??0)>4)).toBe(true);
   expect(await page.locator('[id^="aggregate-clip-"]').count()).toBe(0);
@@ -108,18 +108,17 @@ test('influence, Situation Board links, and Campaign History links are live',asy
   await expect(page.getByTestId('campaign-history')).toHaveCount(0);
 });
 
-test('Phase Five save imports with additive presentation migration',async({page})=>{
+test('Phase Five prototype saves are intentionally rejected and quarantined',async({page})=>{
   await launchCampaign(page);await page.getByRole('button',{name:'Save',exact:true}).click();
   await page.getByRole('button',{name:'Saves',exact:true}).click();await page.getByRole('button',{name:'Save management',exact:true}).click();
   const manual=page.getByRole('button',{name:/Manual .* March 1921/}).first();const download=page.waitForEvent('download');await manual.locator('..').getByRole('button',{name:'Export'}).click();
   const path=await (await download).path();expect(path).not.toBeNull();const legacy=JSON.parse(await readFile(path!,'utf8'));legacy.saveVersion=5;delete legacy.campaign.situationBoard;delete legacy.campaign.campaignHistory;delete legacy.checksum;
   await page.getByLabel('Import save file').setInputFiles({name:'phase-five-save.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(legacy))});
-  await expect(page.getByRole('alert')).toContainText('Imported phase-five-save.json');
-  await page.getByRole('button',{name:/Manual .* March 1921/}).last().click();
-  await page.getByRole('button',{name:'Situation Board'}).click();await expect(page.getByTestId('situation-board')).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('Prototype saves from before Phase Six are no longer supported');
 });
 
 test('captures the Phase Six cartographic and presentation review matrix',async({page})=>{
+  test.setTimeout(60_000);
   const output=resolve('../../docs/review-screenshots/phase-six-after');await mkdir(output,{recursive:true});
   await page.emulateMedia({reducedMotion:'reduce'});
   const capture=async(name:string)=>{

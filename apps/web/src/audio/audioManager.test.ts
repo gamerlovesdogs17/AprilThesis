@@ -22,6 +22,7 @@ const preferences: UserPreferences = {
   researchMode: false,
   allCityLabels: false,
   situationBoardEnabled: true,
+  interfaceDetail: 'standard',
 };
 
 class FakeAudio {

@@ -9,6 +9,8 @@ from _common import (
     DISTRICTS_SOURCE,
     RULES_PATH,
     ensure_directories,
+    administration_for_date,
+    is_geographically_active,
     read_json,
     require_file,
 )
@@ -17,9 +19,7 @@ TARGET_DATE = "1921-03-01"
 
 
 def is_active(rule) -> bool:
-    valid_from = rule.get("validFrom", rule["effectiveDate"])
-    valid_until = rule.get("validUntil")
-    return valid_from <= TARGET_DATE and (valid_until is None or TARGET_DATE <= valid_until)
+    return is_geographically_active(rule, TARGET_DATE)
 
 
 def main() -> None:
@@ -32,6 +32,7 @@ def main() -> None:
     assignments: dict[int, dict] = {}
     duplicates: dict[int, list[str]] = {}
     for rule in filter(is_active, read_json(RULES_PATH)["rules"]):
+        administration = administration_for_date(rule, TARGET_DATE)
         selected_ids: set[int] = set()
         for feature_id in rule["inputFeatureIds"]:
             level, raw_value = feature_id.split(":", 1)
@@ -49,7 +50,7 @@ def main() -> None:
             assignments[district_id] = {
                 "provinceId": rule["outputProvinceId"],
                 "strategicRegionId": rule["strategicRegionId"],
-                "formalGovernmentId": rule["formalGovernmentId"],
+                "formalGovernmentId": administration["formalGovernmentId"],
                 "provinceConfidence": rule["confidence"],
             }
     if duplicates:

@@ -183,8 +183,11 @@ def main() -> None:
         )
     )
     active = provinces[
-        (provinces.validFrom <= TARGET_DATE)
-        & (provinces.validUntil.isna() | (provinces.validUntil >= TARGET_DATE))
+        (provinces.geographicValidFrom <= TARGET_DATE)
+        & (
+            provinces.geographicValidUntil.isna()
+            | (provinces.geographicValidUntil >= TARGET_DATE)
+        )
     ]
     territorial_mask = unary_union(active.geometry)
 

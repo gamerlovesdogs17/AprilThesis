@@ -46,27 +46,21 @@ describe('deterministic simulation', () => {
     expect(deriveNationalChartSeries(replacement.historySnapshots).at(-1)?.industrialProduction).toBe(34);
   });
 
-  it('migrates earlier saves with a compatible history snapshot', () => {
-    const envelope = createSaveEnvelope(campaign(), 'Legacy');
-    envelope.saveVersion = 2;
-    delete (envelope.campaign as Partial<typeof envelope.campaign>).historySnapshots;
+  it('intentionally rejects obsolete prototype saves', () => {
+    const envelope = createSaveEnvelope(campaign(), 'Prototype');
+    envelope.saveVersion = 5;
     delete envelope.checksum;
-    const migrated = migrateSave(envelope);
-    expect(migrated.saveVersion).toBe(6);
-    expect(migrated.campaign.historySnapshots).toHaveLength(1);
-    expect(migrated.campaign.currentDate).toBe('1921-03');
+    expect(() => validateSaveEnvelope(envelope)).toThrow(/before Phase Six/);
+    expect(() => migrateSave(envelope)).toThrow(/before Phase Six/);
   });
 
-  it('migrates Phase Five saves with additive Situation Board and Campaign History fields', () => {
-    const envelope=createSaveEnvelope(campaign(),'Phase Five');envelope.saveVersion=5;
-    delete (envelope.campaign as Partial<typeof envelope.campaign>).situationBoard;
-    delete (envelope.campaign as Partial<typeof envelope.campaign>).campaignHistory;
-    delete envelope.checksum;
-    const migrated=migrateSave(envelope);
-    expect(migrated.saveVersion).toBe(6);
+  it('migrates a complete Phase Six save without reconstructing campaign state', () => {
+    const envelope=createSaveEnvelope(campaign(),'Phase Six');envelope.saveVersion=6;delete envelope.checksum;
+    const migrated=migrateSave(validateSaveEnvelope(envelope));
+    expect(migrated.saveVersion).toBe(7);
     expect(migrated.campaign.situationBoard.schemaVersion).toBe(1);
-    expect(migrated.campaign.situationBoard.items.length).toBeGreaterThanOrEqual(9);
     expect(migrated.campaign.campaignHistory).toEqual({schemaVersion:1,entries:[]});
+    expect(validateSaveEnvelope(migrated)).toBe(migrated);
   });
 
   it('selects Situation Board items from live values and records compact campaign links', () => {
@@ -88,10 +82,10 @@ describe('deterministic simulation', () => {
     expect(JSON.stringify(recorded.campaignHistory.entries)).not.toContain('nationalStats');
   });
 
-  it('migrates and preserves persisted tutorial progress', () => {
+  it('migrates Phase Six and preserves persisted tutorial progress', () => {
     const state=campaign();state.settings.tutorialEnabled=true;state.tutorialStep=11;state.tutorialComplete=false;
-    const envelope=createSaveEnvelope(state,'Guided legacy');envelope.saveVersion=3;delete (envelope.campaign as Partial<typeof envelope.campaign>).tutorialPaused;delete (envelope.campaign as Partial<typeof envelope.campaign>).dismissedHintIds;delete envelope.checksum;
-    const migrated=migrateSave(envelope);
+    const envelope=createSaveEnvelope(state,'Guided Phase Six');envelope.saveVersion=6;delete envelope.checksum;
+    const migrated=migrateSave(validateSaveEnvelope(envelope));
     expect(migrated.campaign.tutorialStep).toBe(11);expect(migrated.campaign.tutorialComplete).toBe(false);expect(migrated.campaign.tutorialPaused).toBe(false);expect(migrated.campaign.dismissedHintIds).toEqual([]);
   });
 

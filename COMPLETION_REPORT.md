@@ -1,20 +1,26 @@
-# Implementation Report: Phase Six
+# Implementation Report: Phase Seven
 
 ## Current status
 
-The Phase Six GIS and presentation implementation is in place. Static validation passes and the complete 48-scenario Playwright suite passed in one clean run. Phase Six is still not declared complete because the required human click-by-click March-August campaign remains outstanding.
+Phase Seven is complete. The March-August campaign remains intact, while the GIS date model now separates geographic existence from administrative ownership, the national atlas fits the active territory, direct province selection distinguishes click from drag, and the shell is responsive across the supported viewport and text-scale matrix.
 
-The repository now contains 96 source-feature reconstruction rules, 93 active March province surfaces, 646 districts, 14 formal-government dissolves, 28 optional strategic dissolves, 694 clipped river segments, 82 clipped railway segments, corrected province/city/site assignment, influence contours, seven theaters, four appearance presets, a monthly Situation Board, and compact Campaign History. Save version 6 migrates Phase Five campaigns additively and simulation balance is unchanged.
+The repository contains 96 reconstruction rules, 95 stable March-August geographic partitions, 650 districts, 14 formal governments in each of six monthly snapshots, 28 optional strategic dissolves, 694 clipped river segments, and 82 clipped railway segments. Akmolinsk is geographically present under Omsk/Sibrevkom administration before its April transfer to the Kirghiz ASSR; the August Komi reorganization no longer overlaps Arkhangelsk and North Dvina.
 
-See `docs/PHASE_SIX_REVIEW.md` for the current verification boundary.
+Standard and Expert interface-detail modes use the same simulation. Quick Start provides a deterministic recommended entry path. Save version 7 supports current saves and complete Phase Six saves only; prototype versions 1-5 intentionally reset and imported files are quarantined.
 
-## Phase Six verification
+## Phase Seven verification
 
-- GIS validation passes for active provinces, districts, cities, sites, transport, date rules, source metadata, and province-to-strategic mappings.
-- Static workspace validation covers 47 Vitest tests, asset checks, TypeScript, and the production build.
-- Chromium passes 48/48 scenarios in one clean run, including the Phase Six cartography, province atlas, seven theaters, presentation overlays, save migration, and screenshot matrix.
-- `docs/review-screenshots/phase-six-after/` contains 22 stabilized review images.
-- Automated full-month coverage and six-turn simulation reachability do not substitute for the outstanding human March-August playthrough.
+- GIS validation passes all six monthly territorial masks with no overlap above 1 km² and no monthly mask change above 5 km².
+- Lint, all TypeScript workspaces, 47 Vitest tests, 38-asset validation, and the production build pass.
+- Chromium passes 54/54 scenarios, including direct pointer selection, drag suppression, stored-view validation, responsive/text-scale checks, and all prior campaign/cartographic scenarios.
+- Standard and Expert browser-driven playthroughs both complete March-August with the fixed `phase-seven-complete-campaign` seed and reach `Reformist Victory`.
+- `docs/review-screenshots/phase-seven-after/` contains the four stabilized responsive map captures.
+
+See `docs/PHASE_SEVEN_AUDIT.md` for the diagnosis and `docs/PHASE_SEVEN_REVIEW.md` for final acceptance evidence.
+
+# Archived Implementation Report: Phase Six
+
+Phase Six introduced the GIS reconstruction and presentation systems. Its outstanding full-campaign review was closed by the Phase Seven Standard and Expert playthroughs recorded above.
 
 # Archived Completion Report: Phase Five
 

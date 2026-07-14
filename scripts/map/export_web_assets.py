@@ -21,6 +21,7 @@ def normalize_properties(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         "sourceFeatureIds",
         "neighborIds",
         "generatedFromProvinceIds",
+        "administrativePeriods",
     ):
         if column in frame.columns:
             frame[column] = frame[column].map(

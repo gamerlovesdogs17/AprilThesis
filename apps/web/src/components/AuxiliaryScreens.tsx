@@ -59,10 +59,11 @@ export function SettingsScreen() {
   return <main className={styles.page}><section className={styles.paperPanel}>
     <p className={styles.eyebrow}>{overlayScreen ? 'Campaign paused · no state discarded' : 'Accessibility and sound'}</p><h1>Settings</h1>
     <div className={styles.section}>
+      <label className={styles.statLine}>Interface detail <select value={preferences.interfaceDetail} onChange={e => updatePreferences({interfaceDetail:e.target.value as 'standard'|'expert'})}><option value="standard">Standard · recommended</option><option value="expert">Expert · all controls and statistics</option></select></label>
       <label className={styles.statLine}>Reduced motion <input type="checkbox" checked={preferences.reducedMotion} onChange={e => updatePreferences({ reducedMotion:e.target.checked })}/></label>
       <label className={styles.statLine}>Colorblind patterns <input type="checkbox" checked={preferences.colorblindMode} onChange={e => updatePreferences({ colorblindMode:e.target.checked })}/></label>
       <label className={styles.statLine}>Mute audio <input type="checkbox" checked={preferences.muted} onChange={e => { const updated={...preferences,muted:e.target.checked}; updatePreferences({ muted:e.target.checked }); audioManager.configure(updated); }}/></label>
-      <label className={styles.statLine}>Text scale <input type="range" min="0.85" max="1.35" step="0.05" value={preferences.textScale} onChange={e => { const textScale=Number(e.target.value); document.documentElement.style.fontSize=`${14*textScale}px`; updatePreferences({textScale}); }}/></label>
+      <label className={styles.statLine}>Text scale <input type="range" min="0.85" max="1.35" step="0.05" value={preferences.textScale} onChange={e => updatePreferences({textScale:Number(e.target.value)})}/></label>
       <label className={styles.statLine}>Master volume <input type="range" min="0" max="1" step="0.05" value={preferences.masterVolume} onChange={e => updatePreferences({masterVolume:Number(e.target.value)})}/></label>
       <label className={styles.statLine}>Music volume <input type="range" min="0" max="1" step="0.05" value={preferences.musicVolume} onChange={e => updatePreferences({musicVolume:Number(e.target.value)})}/></label>
       <label className={styles.statLine}>Ambience volume <input type="range" min="0" max="1" step="0.05" value={preferences.ambienceVolume} onChange={e => updatePreferences({ambienceVolume:Number(e.target.value)})}/></label>

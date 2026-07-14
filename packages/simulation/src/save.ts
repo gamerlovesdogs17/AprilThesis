@@ -1,8 +1,5 @@
 import type { SaveEnvelope, CampaignState } from '@april-thesis/shared-types';
-import { SAVE_VERSION, GAME_VERSION, CONTENT_VERSION } from '@april-thesis/shared-types';
-import { initializePoliticalSystems } from './politics';
-import { captureCampaignSnapshot } from './history';
-import { buildSituationBoard, emptyCampaignHistory } from './presentation';
+import { SAVE_VERSION, GAME_VERSION, CONTENT_VERSION, MINIMUM_SUPPORTED_SAVE_VERSION } from '@april-thesis/shared-types';
 
 export function computeChecksum(data: string): string {
   let hash = 0;
@@ -39,6 +36,9 @@ export function validateSaveEnvelope(data: unknown): SaveEnvelope {
   const envelope = data as SaveEnvelope;
   if (!envelope.saveVersion || !envelope.campaign) throw new Error('Invalid save: missing fields');
   if (envelope.saveVersion > SAVE_VERSION) throw new Error('Save from newer version');
+  if (envelope.saveVersion < MINIMUM_SUPPORTED_SAVE_VERSION) {
+    throw new Error('Prototype saves from before Phase Six are no longer supported. Start a new campaign.');
+  }
   const { checksum, ...rest } = envelope;
   const payload = JSON.stringify(rest);
   if (checksum && computeChecksum(payload) !== checksum) {
@@ -48,43 +48,14 @@ export function validateSaveEnvelope(data: unknown): SaveEnvelope {
 }
 
 export function migrateSave(envelope: SaveEnvelope): SaveEnvelope {
+  if (envelope.saveVersion < MINIMUM_SUPPORTED_SAVE_VERSION) {
+    throw new Error('Prototype saves from before Phase Six are no longer supported. Start a new campaign.');
+  }
   const migrated = structuredClone(envelope);
-  if (migrated.saveVersion < SAVE_VERSION) {
-    migrated.saveVersion = SAVE_VERSION;
-  }
-  if (!migrated.campaign.flags) migrated.campaign.flags = {};
-  if (!migrated.campaign.decisions) migrated.campaign.decisions = [];
-  const campaign = migrated.campaign;
-  const political = initializePoliticalSystems(campaign.resources.intelligence);
-  campaign.organizers ??= political.organizers;
-  campaign.factionBlocs ??= political.factionBlocs;
-  campaign.policyProposals ??= political.policyProposals;
-  campaign.voteState ??= political.voteState;
-  campaign.factionActionsRemaining ??= 2;
-  campaign.politicalActionsRemaining ??= 2;
-  campaign.operationCooldowns ??= {};
-  campaign.operationHistory ??= [];
-  campaign.institutionHistory ??= [];
-  campaign.characterCommunications ??= [];
-  campaign.historySnapshots ??= [captureCampaignSnapshot(campaign)];
-  campaign.campaignHistory ??= emptyCampaignHistory();
-  campaign.situationBoard ??= buildSituationBoard(campaign);
-  campaign.tutorialStep ??= campaign.settings.tutorialEnabled ? 0 : -1;
-  campaign.tutorialComplete ??= !campaign.settings.tutorialEnabled;
-  campaign.tutorialPaused ??= false;
-  campaign.tutorialMilestones ??= [];
-  campaign.tutorialEndPanelDismissed ??= false;
-  campaign.settings.tutorialMode ??= campaign.settings.tutorialEnabled ? 'guided_opening' : 'none';
-  campaign.dismissedHintIds ??= [];
-  for (const character of Object.values(campaign.characters)) {
-    character.availability ??= character.isArrested ? 'arrested' : character.isExiled ? 'exiled' : 'active';
-    character.currentAgenda ??= 'Party business'; character.lastAction ??= 'No autonomous action recorded.';
-    character.relationshipPressure ??= 0; character.knownSecrets ??= [];
-  }
-  for (const institution of Object.values(campaign.institutions)) {
-    institution.attitude ??= 35; institution.autonomy ??= 40; institution.activeAgenda ??= 'Implement current directives';
-    institution.pendingBusiness ??= []; institution.contactIds ??= []; institution.lastAction ??= 'No institutional approach recorded.';
-  }
+  migrated.saveVersion = SAVE_VERSION;
+  migrated.gameVersion = GAME_VERSION;
+  migrated.contentVersion = CONTENT_VERSION;
+  migrated.checksum = computeChecksum(JSON.stringify({ ...migrated, checksum: undefined }));
   return migrated;
 }
 
@@ -99,7 +70,7 @@ export interface SaveSlot {
 }
 
 const DB_NAME = 'april-thesis-saves';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'saves';
 const QUARANTINE_STORE = 'quarantine';
 
@@ -110,10 +81,20 @@ function openDb(): Promise<IDBDatabase> {
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
+      const store = db.objectStoreNames.contains(STORE_NAME)
+        ? request.transaction!.objectStore(STORE_NAME)
+        : db.createObjectStore(STORE_NAME, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(QUARANTINE_STORE)) db.createObjectStore(QUARANTINE_STORE, { keyPath: 'id' });
+      if (event.oldVersion > 0 && event.oldVersion < DB_VERSION) {
+        const cursorRequest = store.openCursor();
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result;
+          if (!cursor) return;
+          const version = cursor.value?.envelope?.saveVersion;
+          if (typeof version !== 'number' || version < MINIMUM_SUPPORTED_SAVE_VERSION) cursor.delete();
+          cursor.continue();
+        };
+      }
     };
   });
 }
@@ -154,7 +135,9 @@ export async function listSaveSlots(): Promise<SaveSlot[]> {
     const store = tx.objectStore(STORE_NAME);
     const request = store.getAll();
     request.onsuccess = () => {
-      const slots: SaveSlot[] = (request.result ?? []).map((r: { id: string; envelope: SaveEnvelope; slotName?: string }) => ({
+      const slots: SaveSlot[] = (request.result ?? [])
+        .filter((r: { envelope?: SaveEnvelope }) => (r.envelope?.saveVersion ?? 0) >= MINIMUM_SUPPORTED_SAVE_VERSION)
+        .map((r: { id: string; envelope: SaveEnvelope; slotName?: string }) => ({
         id: r.id,
         name: r.slotName ?? r.envelope.slotName ?? r.id,
         date: r.envelope.campaign.currentDate,
@@ -162,7 +145,7 @@ export async function listSaveSlots(): Promise<SaveSlot[]> {
         updatedAt: r.envelope.updatedAt,
         ironman: r.envelope.campaign.settings.ironman,
         tutorial: r.envelope.campaign.settings.tutorialMode === 'guided_tutorial',
-      }));
+        }));
       resolve(slots);
     };
     request.onerror = () => reject(request.error);

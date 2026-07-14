@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from _common import ROOT, read_json, RULES_PATH
+from _common import (
+    ROOT,
+    RULES_PATH,
+    administrative_periods,
+    geographic_valid_from,
+    geographic_valid_until,
+    read_json,
+)
 
 
 def clean(value: object) -> str:
@@ -13,11 +20,16 @@ def main() -> None:
     payload = read_json(RULES_PATH)
     rows = []
     for rule in payload["rules"]:
-        validity = clean(rule.get("validFrom", rule["effectiveDate"]))
-        if rule.get("validUntil"):
-            validity += f" to {clean(rule['validUntil'])}"
+        validity = clean(geographic_valid_from(rule))
+        if geographic_valid_until(rule):
+            validity += f" to {clean(geographic_valid_until(rule))}"
         inputs = ", ".join(rule["inputFeatureIds"])
         sources = ", ".join(rule["sourceIds"])
+        periods = administrative_periods(rule)
+        governments = "; ".join(
+            f"{period['validFrom']} {period['formalGovernmentId']} ({period['administrativeType']})"
+            for period in periods
+        )
         rows.append(
             "| {name} | `{pid}` | {operation} | {inputs} | `{government}` | "
             "`{strategic}` | {validity} | {confidence} | {sources} | {notes} |".format(
@@ -25,7 +37,7 @@ def main() -> None:
                 pid=clean(rule["outputProvinceId"]),
                 operation=clean(rule["operation"]),
                 inputs=clean(inputs),
-                government=clean(rule["formalGovernmentId"]),
+                government=clean(governments),
                 strategic=clean(rule["strategicRegionId"]),
                 validity=validity,
                 confidence=clean(rule["confidence"]),
